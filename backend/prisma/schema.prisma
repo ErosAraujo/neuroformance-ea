@@ -1,0 +1,167 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  profile   String
+  createdAt DateTime @default(now())
+  active    Boolean  @default(true)
+  student   Student?
+  teacher   Teacher?
+  pushSubscriptions PushSubscription[]
+}
+
+model Student {
+  id           Int           @id @default(autoincrement())
+  user         User          @relation(fields: [userId], references: [id])
+  userId       Int           @unique
+  teacher      Teacher?      @relation(fields: [teacherId], references: [id])
+  teacherId    Int?
+  dateOfBirth  DateTime?
+  gender       String?
+  notes        String?
+  active       Boolean       @default(true)
+  sleepRecords SleepRecord[]
+  sleepGoals   SleepGoal[]
+  alerts       Alert[]
+  observations Observation[]
+  pushSubscriptions PushSubscription[]
+
+  /// Status do aluno: active (ativo), archived (arquivado) ou deleted (deletado).
+  status        StudentStatus @default(active)
+  /// Data em que o aluno foi arquivado, se aplicável
+  archivedAt    DateTime?
+  /// Data em que o aluno foi marcado como deletado, se aplicável
+  deletedAt     DateTime?
+
+  @@index([teacherId])
+}
+
+/// Enum para representar o status de um aluno. Mantém compatibilidade com o campo `active` existente.
+enum StudentStatus {
+  active
+  archived
+  deleted
+}
+
+/// Cadastro de subscriptions para notificações push. Permite que alunos e professores configurem lembretes
+/// diários para registro de sono. Cada subscription é identificada pelo endpoint e associada a um usuário e
+/// opcionalmente a um aluno específico. Os campos `reminderEnabled` e `reminderTime` determinam se o
+/// lembrete diário está ativo e o horário configurado. A coluna `timezone` define o fuso horário do usuário.
+model PushSubscription {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  studentId       Int?
+  endpoint        String
+  p256dh          String
+  auth            String
+  userAgent       String?
+  active          Boolean    @default(true)
+  reminderEnabled Boolean    @default(true)
+  reminderTime    String     @default("08:00")
+  timezone        String     @default("America/Sao_Paulo")
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  lastSentAt      DateTime?
+  user            User       @relation(fields: [userId], references: [id])
+  student         Student?   @relation(fields: [studentId], references: [id])
+  @@index([userId])
+  @@index([studentId])
+  @@unique([userId, endpoint])
+}
+
+model Teacher {
+  id           Int           @id @default(autoincrement())
+  user         User          @relation(fields: [userId], references: [id])
+  userId       Int           @unique
+  students     Student[]
+  observations Observation[]
+}
+
+model SleepRecord {
+  id                 Int      @id @default(autoincrement())
+  student            Student  @relation(fields: [studentId], references: [id])
+  studentId          Int
+  date               DateTime
+  sleepTime          DateTime
+  wakeTime           DateTime
+  totalHours         Float
+  perceivedQuality   Int
+  awakenings         Int
+  morningState       Int
+  energy             Int
+  timeToSleep        Int?
+  nap                Boolean?
+  caffeine           Boolean?
+  alcohol            Boolean?
+  screenBeforeSleep  Boolean?
+  stress             Int?
+  /// Dor muscular geral em escala de 1 a 5. Valores maiores indicam mais dor. Campo adicional ao `pain` original.
+  generalPain        Int?
+  /// Sensação de corpo pesado em escala de 1 a 5. Valores maiores indicam sensação mais pesada.
+  bodyHeaviness      Int?
+  /// Indica se houve dor na noite. Mantido por compatibilidade com versões antigas.
+  pain               Boolean?
+  mood               Int?
+  notes              String?
+  scoreDuration      Int
+  scoreQuality       Int
+  scoreContinuity    Int
+  scoreState         Int
+  scoreRegularity    Int
+  scoreTotal         Int
+  classification     String
+  createdAt          DateTime @default(now())
+
+  @@unique([studentId, date])
+  @@index([studentId, date])
+}
+
+model SleepGoal {
+  id              Int      @id @default(autoincrement())
+  student         Student  @relation(fields: [studentId], references: [id])
+  studentId       Int
+  hoursGoal       Float
+  sleepTimeGoal   DateTime
+  wakeTimeGoal    DateTime
+  regularityGoal  Int
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  @@index([studentId, active])
+}
+
+model Alert {
+  id          Int       @id @default(autoincrement())
+  student     Student   @relation(fields: [studentId], references: [id])
+  studentId   Int
+  type        String
+  description String
+  level       String
+  date        DateTime  @default(now())
+  resolved    Boolean   @default(false)
+  resolvedAt  DateTime?
+
+  @@index([studentId, resolved])
+}
+
+model Observation {
+  id        Int      @id @default(autoincrement())
+  student   Student  @relation(fields: [studentId], references: [id])
+  studentId Int
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  teacherId Int
+  date      DateTime @default(now())
+  text      String
+
+  @@index([studentId, teacherId])
+}

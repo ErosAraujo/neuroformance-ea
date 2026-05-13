@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Neuroformance EA",
+    "slug": "neuroformance-ea",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#020617"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#020617"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/icon.png",
+      "name": "Neuroformance EA",
+      "shortName": "Neuroformance",
+      "themeColor": "#8B5CF6",
+      "backgroundColor": "#020617",
+      "description": "Sistema de prontidão, reflexo e performance para acompanhamento de sono, recuperação e treino."
+    },
+    "scheme": "neuroformance-ea"
+  }
+}
