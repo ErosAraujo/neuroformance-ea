@@ -3,6 +3,8 @@ import prisma from '../models/prisma';
 import { calculateSleepScore, getFatigueRisk, getRecoveryLevel } from '../services/scoreService';
 import { consolidateWeek } from '../services/consolidationService';
 import { generateAlertsForStudent } from '../services/alertService';
+import { calculateDailyIndicators } from '../services/indicatorService';
+import { buildPostRecordInsights } from '../services/insightService';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { getStudentIdByUserId } from '../services/identityService';
 import { assertNotFutureDate, calculateTotalHours, circularMinuteDiff, getRollingLast7DaysRange, minutesFromDate, parseDateOnly } from '../services/timeService';
@@ -224,7 +226,13 @@ export class SleepRecordController {
       const data = await buildSleepRecordPayload(studentId, req.body);
       const record = await prisma.sleepRecord.create({ data });
       await refreshStudentAlerts(studentId, record.date);
-      return res.status(201).json(record);
+      const [allRecords, activeGoal] = await Promise.all([
+        prisma.sleepRecord.findMany({ where: { studentId }, orderBy: { date: 'desc' } }),
+        prisma.sleepGoal.findFirst({ where: { studentId, active: true }, orderBy: { createdAt: 'desc' } }),
+      ]);
+      const indicators = calculateDailyIndicators(allRecords.slice(0, 3).reverse());
+      const postRecordInsights = buildPostRecordInsights(record, allRecords, activeGoal);
+      return res.status(201).json({ record, indicators, postRecordInsights });
     } catch (error: any) {
       console.error(error);
       const status = String(error.message || '').includes('Já existe um registro') ? 409 : 400;
@@ -246,7 +254,13 @@ export class SleepRecordController {
       const data = await buildSleepRecordPayload(studentId, req.body, id);
       const record = await prisma.sleepRecord.update({ where: { id }, data });
       await refreshStudentAlerts(studentId, record.date);
-      return res.json(record);
+      const [allRecords, activeGoal] = await Promise.all([
+        prisma.sleepRecord.findMany({ where: { studentId }, orderBy: { date: 'desc' } }),
+        prisma.sleepGoal.findFirst({ where: { studentId, active: true }, orderBy: { createdAt: 'desc' } }),
+      ]);
+      const indicators = calculateDailyIndicators(allRecords.slice(0, 3).reverse());
+      const postRecordInsights = buildPostRecordInsights(record, allRecords, activeGoal);
+      return res.json({ record, indicators, postRecordInsights });
     } catch (error: any) {
       console.error(error);
       const status = String(error.message || '').includes('Já existe um registro') ? 409 : 400;

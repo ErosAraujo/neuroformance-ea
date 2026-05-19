@@ -4,14 +4,17 @@
   "main": "build/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "npx prisma generate && npx tsc",
+    "build": "tsc",
     "start": "node build/index.js",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:deploy": "npx prisma migrate deploy",
     "seed": "ts-node-dev --transpile-only prisma/seed.ts",
-    "test": "ts-node tests/score.test.ts && ts-node tests/contracts.test.ts && ts-node tests/quality.test.ts && ts-node tests/teacherDashboard.test.ts",
-    "typecheck": "tsc --noEmit"
+    "test": "ts-node tests/score.test.ts && ts-node tests/contracts.test.ts && ts-node tests/quality.test.ts && ts-node tests/teacherDashboard.test.ts && ts-node tests/insightService.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build:with-prisma": "npm run prisma:generate && npm run build",
+    "prisma:validate": "npx prisma validate",
+    "prisma:migrate:status": "npx prisma migrate status"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

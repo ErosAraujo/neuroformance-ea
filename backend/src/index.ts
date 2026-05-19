@@ -58,6 +58,7 @@ app.use('/api/students', studentsRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/sleep-goals', sleepGoalRoutes);
 app.use('/api/insights', insightsRoutes);
+app.use('/api/student/insights', insightsRoutes);
 app.use('/api/observations', observationRoutes);
 app.use('/api/teacher', teacherRoutes);
 // Nova rota para indicadores diários

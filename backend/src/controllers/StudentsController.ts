@@ -5,6 +5,7 @@ import { getTeacherIdByUserId } from '../services/identityService';
 import { getRollingLast7DaysRange } from '../services/timeService';
 import { calculateDailyIndicators } from '../services/indicatorService';
 import { mapSleepGoal, mapSleepRecordForTeacher } from '../services/teacherDashboardService';
+import { buildTeacherStudentProfile } from '../services/insightService';
 
 function avg(records: { scoreTotal: number }[]) {
   return records.length ? records.reduce((sum, record) => sum + record.scoreTotal, 0) / records.length : 0;
@@ -275,6 +276,7 @@ export class StudentsController {
         generalStatusScore: indicators.generalStatusScore,
         generalStatusClassification: indicators.generalStatusClassification,
         indicatorTrend: indicators.trend,
+        profileInsights: buildTeacherStudentProfile(student.id, student.user.name, allRecords, student.sleepGoals[0] ?? null),
       });
     } catch (error) {
       console.error(error);
