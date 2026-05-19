@@ -12,7 +12,7 @@ type SleepRecord = { id: number; date: string; sleepTime?: string; wakeTime?: st
 type WeeklySummary = { averageScore?: number; averageHours?: number; averageQuality?: number; averageEnergy?: number; nightsRecorded?: number; goodNights?: number; badNights?: number; regularityAverage?: number; adherence?: number; trend?: string };
 type RecoverySummary = { hasData: boolean; recoveryLevel: string | null; readinessScore: number | null; fatigueRisk: string | null; recoveryScore: number | null; weeklyTrendPercent: number | null; trainingSuggestion?: string };
 type StudentListItem = { id: number; name: string; email?: string; login?: string; username?: string; status?: string; studentStatus?: string; trackingStatus?: string; priority?: string; weeklyAverage?: number; monthlyAverage?: number; trend?: string; lastRecord?: any; recentRecords?: SleepRecord[]; records?: SleepRecord[]; allRecords?: SleepRecord[]; adherence?: number; alertCount?: number; risk?: string; recommendation?: string };
-type AlertItem = { id: number | string; studentId?: number | string; studentName?: string; type?: string; description: string; level?: string; severity?: string; action?: string; date?: string; status?: string; source?: 'backend' };
+type AlertItem = { id: number | string; studentId?: number | string; studentName?: string; type?: string; title?: string; message?: string; description: string; level?: string; severity?: string; priority?: string; recommendedAction?: string; action?: string; date?: string; createdAt?: string; status?: string; source?: 'backend' };
 type InsightItem = { title?: string; message?: string; description?: string; level?: string; type?: string } | string;
 type SleepGoal = { id?: number; hoursGoal?: number; sleepTimeGoal?: string; wakeTimeGoal?: string; regularityGoal?: number; active?: boolean; createdAt?: string } | null;
 type DashboardStudent = StudentListItem & { activeGoal?: SleepGoal; alerts?: AlertItem[]; records?: SleepRecord[]; detailLoaded?: boolean; detailError?: string };
@@ -359,16 +359,16 @@ function StudentBottomNav() {
   return <nav className="bottomNav">{items.map(([path,label]) => <button key={path} className={location.pathname===path?'active':''} onClick={()=>navigate(path)}>{label}</button>)}</nav>;
 }
 
-function TeacherNav() {
+function TeacherNav({ alertCount }: { alertCount?: number } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const items = [
-    ['/professor','Dashboard'],
-    ['/professor/alunos','Alunos'],
-    ['/professor/acessos','Acessos'],
-    ['/professor/alertas','Alertas']
+    ['/professor','Dashboard','▦'],
+    ['/professor/alunos','Alunos','♙'],
+    ['/professor/acessos','Acessos','▣'],
+    ['/professor/alertas','Alertas','♧']
   ];
-  return <nav className="teacherTabs" aria-label="Navegação do professor">{items.map(([path,label]) => <button key={path} className={location.pathname===path?'active':''} onClick={()=>navigate(path)}>{label}</button>)}</nav>;
+  return <nav className="teacherTabs" aria-label="Navegação do professor">{items.map(([path,label,icon]) => <button key={path} className={location.pathname===path?'active':''} onClick={()=>navigate(path)}><span aria-hidden="true" className="teacherTabIcon">{icon}</span><span>{label}</span>{label === 'Alertas' && alertCount !== undefined && alertCount > 0 && <em className="teacherTabBadge">{alertCount}</em>}</button>)}</nav>;
 }
 
 function teacherGreeting() {
@@ -439,14 +439,24 @@ function Shell({ children, title, eyebrow, subtitle, backTo, nav, headerAction }
   if (isTeacher) {
     const professorName = user?.name || 'Professor';
     const professorFirstName = String(professorName).trim().split(/\s+/)[0] || 'Professor';
-    return <main className="app teacherAppShell">
-      <header className="teacherPremiumHeader">
+    const pageKey = normalizeText(title).replace(/[^a-z0-9]+/g, '-') || 'professor';
+    const showFullHeader = true;
+    const showStudentTopbar = false;
+    const showAccessTopbar = false;
+    const showExternalNav = true;
+    const showPageTitle = pageKey !== 'dashboard';
+
+    const brandTitle = <><span>Neuroformance</span> <b>EA</b></>;
+    const brandSub = 'Sistema de prontidão, reflexo e performance';
+
+    return <main className={`app teacherAppShell teacherPage-${pageKey}`}>
+      {showFullHeader && <header className="teacherPremiumHeader">
         <div className="teacherHeaderGlow" aria-hidden="true" />
         <section className="teacherHeaderBrand">
           <div className="moonBadge brandImageBadge" aria-hidden="true"><img src="/brand/logo-icon.png" alt="" /></div>
           <div>
-            <strong>PAINEL DO<br/>PROFESSOR</strong>
-            <small>NEUROFORMANCE EA</small>
+            <strong>{brandTitle}</strong>
+            <small>{brandSub}</small>
           </div>
         </section>
         <section className="teacherHeaderGreeting">
@@ -456,7 +466,6 @@ function Shell({ children, title, eyebrow, subtitle, backTo, nav, headerAction }
         </section>
         <section className="teacherHeaderProfile">
           <div className="teacherHeaderActions teacherHeaderActionsFloating">
-            <button className="ghost headerDashboardButton" onClick={() => navigate('/professor')}>Dashboard</button>
             <button className="ghost logoutButton" onClick={logout}>Sair</button>
           </div>
           <div className="profileCapsule">
@@ -468,16 +477,38 @@ function Shell({ children, title, eyebrow, subtitle, backTo, nav, headerAction }
             </div>
           </div>
         </section>
-      </header>
-      <section className="teacherNavDock">{nav}</section>
-      <section className="teacherPageTitle">
+      </header>}
+
+      {showStudentTopbar && <header className="teacherStudentsTopbar">
+        <section className="teacherStudentsBrand">
+          <img src="/brand/logo-icon.png" alt="Neuroformance EA" />
+          <div><strong>NEUROFORMANCE EA</strong><small>PAINEL DO PROFESSOR</small></div>
+        </section>
+        <div className="teacherStudentsNav">{nav}</div>
+        <section className="teacherStudentsActions">
+          <button className="ghost iconOnly" type="button" title="Notificações">♧</button>
+          <div className="studentTopProfile"><TeacherProfileAvatar user={user} name={professorName}/><div><strong>{professorName}</strong><small>Professor</small></div></div>
+        </section>
+      </header>}
+
+      {showAccessTopbar && <header className="teacherAccessTopbar">
+        <section className="teacherAccessBrand">
+          <img src="/brand/logo-icon.png" alt="Neuroformance EA" />
+          <strong>NEUROFORMANCE EA</strong>
+        </section>
+        <button className="ghost accessBackButton" onClick={() => backTo ? navigate(backTo) : navigate('/professor')}>← Voltar</button>
+      </header>}
+
+      {showExternalNav && <section className="teacherNavDock">{nav}</section>}
+
+      {showPageTitle && <section className="teacherPageTitle">
         <div>
           <span className="eyebrow">{eyebrow || 'Área do professor'}</span>
           <h2>{title}</h2>
           {subtitle && <p>{subtitle}</p>}
         </div>
-        <div className="teacherPageActions">{backTo !== undefined && <BackButton backPath={backTo}/>} {headerAction}</div>
-      </section>
+        <div className="teacherPageActions">{backTo !== undefined && pageKey !== 'acessos' && <BackButton backPath={backTo}/>} {headerAction}</div>
+      </section>}
       {children}
     </main>;
   }
@@ -872,7 +903,7 @@ function calculateGoalNotMet(student: DashboardStudent): GoalNotMetResult {
 function toneFromCount(count: number, total: number) { if (count <= 0) return 'good'; const ratio = total ? count / total : 0; if (ratio >= 0.35) return 'danger'; if (ratio >= 0.15) return 'low'; return 'warn'; }
 function severityTone(level?: string) { return riskClass(level || ''); }
 function fatigueText(result?: FatigueResult) { return result?.riskFinal === null || !result ? 'Dados insuficientes' : `${Math.round(result.riskFinal)}/100`; }
-function TeacherDonut({ value, total, tone = 'good' }: { value: number; total: number; tone?: string }) { const pctValue = total > 0 ? Math.max(0, Math.min(100, (value / total) * 100)) : 0; return <div className={`teacherDonut ${tone}`} style={{ '--value': `${pctValue * 3.6}deg` } as React.CSSProperties}><strong>{value}/{total}</strong><small>{Math.round(pctValue)}%</small></div>; }
+function TeacherDonut({ value, total, tone = 'good' }: { value: number; total: number; tone?: string }) { const pctValue = total > 0 ? Math.max(0, Math.min(100, (value / total) * 100)) : 0; return <div className={`teacherDonut ${tone}`} style={{ '--value': `${pctValue * 3.6}deg` } as React.CSSProperties}><strong>{value}/{total}</strong></div>; }
 function TeacherMetricCard({ title, value, description, tone = '', children, onClick, action }: { title: string; value: React.ReactNode; description: string; tone?: string; children?: React.ReactNode; onClick?: () => void; action?: string }) { return <article className={`teacherMetricCard ${tone} ${onClick ? 'clickableCard' : ''}`} onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={e=>{ if(onClick && (e.key === 'Enter' || e.key === ' ')) onClick(); }}><div className="metricTop"><span>{title}</span>{action && <button type="button" className="ghost tiny" onClick={(e)=>{e.stopPropagation(); onClick?.();}}>{action}</button>}</div><strong className="metricValue">{value}</strong><p>{description}</p>{children}</article>; }
 function TeacherDashboardModal({ modal, onClose }: { modal: DashboardModalState; onClose: () => void }) { if (!modal) return null; return <div className="modalOverlay" role="dialog" aria-modal="true"><section className="modalCard teacherModal"><div className="sectionHeader"><div><span className="eyebrow">Detalhamento</span><h3>{modal.title}</h3>{modal.description && <p>{modal.description}</p>}</div><button className="ghost small" onClick={onClose}>Fechar</button></div><div className="list">{modal.items.length ? modal.items : [<Empty key="empty" text="Nenhum aluno nesta regra agora."/>]}</div></section></div>; }
 function studentSummaryRow(student: DashboardStudent, openStudent: (studentId: number | string | undefined) => void, extra?: React.ReactNode) { const records = getStudentRecords(student); const latest = getLatestRecord(records); const avg = safeScore((student as any).averageLast3Score) ?? averageScores(getLastValidRecords(records, 3)); return <button className="studentRow" key={`${student.id}-${String(extra)}`} onClick={()=>openStudent(student.id)}><StudentAvatar student={student} size="sm"/><div><strong>{student.name}</strong><small>{student.email || student.login || student.username || 'sem e-mail/login'} • último registro {latest ? brDate(latest.date) : 'sem registro'}{avg !== undefined ? ` • média ${score(avg)}` : ''}</small>{extra && <em>{extra}</em>}</div><b className={levelClass(avg ?? latest?.scoreTotal)}>{avg !== undefined ? score(avg) : score(latest?.scoreTotal)}</b></button>; }
@@ -1053,40 +1084,81 @@ function TeacherDashboard() {
   const searched = students.filter(s=>q && getStudentSearchText(s).includes(q));
   const openStudentList = (title: string, description: string, selected: DashboardStudent[], extra?: (student: DashboardStudent) => React.ReactNode) => setModal({ title, description, items: selected.map(student => studentSummaryRow(student, openStudent, extra?.(student))) });
 
-  return <Shell title="Dashboard" eyebrow="PAINEL DO PROFESSOR" subtitle="Acompanhe prontidão, recuperação e risco dos seus alunos com clareza." nav={<TeacherNav/>} headerAction={<button className="primary" onClick={()=>navigate('/professor/alunos')}>Ver todos os alunos</button>}>
+  const registrationBase = students.map(student => ({ student, count: getStudentRecords(student).length })).sort((a,b)=>b.count-a.count);
+  const registrationRanking = registrationBase.slice(0,3);
+  const podiumItems = registrationRanking.slice(0, 3) as { student: DashboardStudent; count: number }[];
+  const averageRecords = students.length ? registrationBase.reduce((sum,item)=>sum+item.count,0) / students.length : 0;
+  const updatedAt = new Date().toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  return <Shell title="Dashboard" eyebrow="PAINEL DO PROFESSOR" subtitle="Acompanhe prontidão, recuperação e risco dos seus alunos com clareza." nav={<TeacherNav alertCount={studentsWithAlerts.length}/>}>
     <TeacherDashboardModal modal={modal} onClose={()=>setModal(null)}/>
     {error && <div className="error premiumError">{error}<button type="button" className="secondary smallInline" onClick={loadDashboard}>Tentar novamente</button></div>}
-    <section className="card quickSearch teacherQuickSearch">
-      <div className="sectionHeader">
-        <div><h3>Busca rápida de aluno</h3><p>Digite o nome, e-mail ou login para abrir a ficha do aluno dentro da área de Alunos.</p></div>
-        <input className="search" placeholder="Buscar aluno por nome, e-mail ou login..." value={search} onChange={e=>setSearch(e.target.value)}/>
-      </div>
-      {q && <div className="list">{searched.slice(0,8).map(s=><button className="studentRow" key={s.id} onClick={()=>openStudent(s.id)}><StudentAvatar student={s} size="sm"/><div><strong>{s.name}</strong><small>{s.email || s.login || 'sem e-mail/login'} • prioridade {s.priority || priorityFromStudent(s)}</small></div><b className={levelClass(scoreValueFromStudent(s))}>{score(scoreValueFromStudent(s))}</b></button>)}{!searched.length && <Empty text="Nenhum aluno encontrado nessa busca."/>}</div>}
+    <section className="card quickSearch teacherQuickSearch dashboardSearchPanel">
+      <input className="search" placeholder="Buscar aluno por nome, e-mail ou login..." value={search} onChange={e=>setSearch(e.target.value)}/>
+      {q && <div className="list dashboardSearchResults">{searched.slice(0,8).map(s=><button className="studentRow" key={s.id} onClick={()=>openStudent(s.id)}><StudentAvatar student={s} size="sm"/><div><strong>{s.name}</strong><small>{s.email || s.login || 'sem e-mail/login'} • prioridade {s.priority || priorityFromStudent(s)}</small></div><b className={levelClass(scoreValueFromStudent(s))}>{score(scoreValueFromStudent(s))}</b></button>)}{!searched.length && <Empty text="Nenhum aluno encontrado nessa busca."/>}</div>}
     </section>
     {loading ? <LoadingCard/> : <>
-      <section className="teacherDashboardGrid three">
-        <TeacherMetricCard title="Prontidão baixa/crítica" value={readinessLow.length} description="Alunos com prontidão para treino abaixo de 55%." tone={toneFromCount(readinessLow.length,totalStudents)} action="Ver alunos" onClick={()=>openStudentList('Prontidão baixa/crítica', 'Alunos com prontidão para treino em faixa baixa ou crítica.', readinessLow, student => `Prontidão: ${metricDisplay((student as any).readinessScore, '%')} • ${(student as any).readinessClassification || 'sem classificação'}`)} />
-        <TeacherMetricCard title="Fadiga alta/crítica" value={fatigueHighNew.length} description="Alunos com fadiga geral em faixa alta ou crítica." tone={toneFromCount(fatigueHighNew.length,totalStudents)} action="Ver fadiga" onClick={()=>openStudentList('Fadiga alta/crítica', 'Alunos com fadiga geral acima de 70/100.', fatigueHighNew, student => `Fadiga: ${metricDisplay((student as any).fatigue?.value)}/100 • ${(student as any).fatigue?.classification || 'sem classificação'}`)} />
-        <TeacherMetricCard title="Risco de sobrecarga alto/crítico" value={overloadHigh.length} description="Alunos com risco de sobrecarga acima de 70/100." tone={toneFromCount(overloadHigh.length,totalStudents)} action="Ver risco" onClick={()=>openStudentList('Risco de sobrecarga alto/crítico', 'Alunos com risco de sobrecarga em faixa alta ou crítica.', overloadHigh, student => `Risco: ${metricDisplay((student as any).overloadRisk?.value)}/100 • ${(student as any).overloadRisk?.classification || 'sem classificação'}`)} />
+      <section className="dashboardMetricRow">
+        <button className="dashMetricCard info" onClick={()=>openStudentList('Total de alunos', 'Base completa de alunos ativos retornados pela API.', students)}><span className="dashIcon">♙</span><div><small>Total de alunos</small><strong>{totalStudents}</strong><p>Alunos ativos cadastrados/retornados pela API.</p></div><i className="spark" /></button>
+        <button className="dashMetricCard good ratioOnly" onClick={()=>openStudentList('Registraram hoje', 'Aluno conta aqui quando possui registro da noite anterior à manhã atual.', todayRegistered)}><span className="dashIcon">✓</span><div><small>Registraram hoje</small><p>Alunos com registro da noite anterior.</p></div><TeacherDonut value={todayRegistered.length} total={totalStudents} tone="good" /></button>
+        <button className="dashMetricCard danger" onClick={()=>openStudentList('Alunos em risco', 'Regra A: média dos 3 últimos scores válidos abaixo de 55. Regra B: último score válido abaixo de 40.', riskStudents, student => { const last = getLastValidRecords(getStudentRecords(student),3)[0]; const avg = averageScores(getLastValidRecords(getStudentRecords(student),3)); return `Média recente: ${avg !== undefined ? score(avg) : 'sem dados'} • Último score: ${last ? score(last.scoreTotal) : 'sem dados'}`; })}><span className="dashIcon">!</span><div><small>Alunos em risco</small><strong>{riskStudents.length}</strong><p>Média dos 3 últimos registros abaixo de 55 ou último score abaixo de 40.</p></div></button>
+        <button className="dashMetricCard warn ratioOnly" onClick={()=>openStudentList('Alunos com baixa adesão', 'Separação: baixa adesão = menos de 3 registros em 7 dias; crítico = 0 registros.', lowAdherence.low.map(item=>item.student), student => `${getRecordsLastDays(getStudentRecords(student),7).length} registro(s) nos últimos 7 dias${getRecordsLastDays(getStudentRecords(student),7).length === 0 ? ' • crítico sem registro na semana' : ''}`)}><span className="dashIcon">▥</span><div><small>Baixa adesão</small><p>Alunos com atenção/alerta abaixo de 55/100.</p></div><TeacherDonut value={lowAdherence.low.length} total={totalStudents} tone="warn" /></button>
       </section>
-      <section className="teacherDashboardGrid three">
-        <TeacherMetricCard title="Top 3 menores recuperações corporais" value={lowestBodyRecovery.length ? `${score(lowestBodyRecovery[0].value)}/100` : 'Sem dados'} description="Ranking pela recuperação corporal calculada nos indicadores." tone={lowestBodyRecovery[0]?.value !== undefined ? levelClass(lowestBodyRecovery[0].value) : 'neutral'} action="Abrir ranking" onClick={()=>setModal({ title: 'Top 3 menores recuperações corporais', description: 'Ranking pelo indicador recuperação corporal.', items: lowestBodyRecovery.map(item => studentSummaryRow(item.student, openStudent, `Recuperação corporal: ${score(item.value)}/100 • ${(item.student as any).recovery?.classification || 'sem classificação'}`)) })} />
-        <TeacherMetricCard title="Estado de alerta baixo/crítico" value={alertnessLow.length} description="Alunos com atenção/alerta abaixo de 55/100." tone={toneFromCount(alertnessLow.length,totalStudents)} action="Ver alerta" onClick={()=>openStudentList('Estado de alerta baixo/crítico', 'Alunos com estado de alerta baixo ou crítico.', alertnessLow, student => `Estado de alerta: ${metricDisplay((student as any).alertness?.value)}/100 • ${(student as any).alertness?.classification || 'sem classificação'}`)} />
-        <TeacherMetricCard title="Foco mental baixo/crítico" value={focusLow.length} description="Alunos com foco mental abaixo de 55/100." tone={toneFromCount(focusLow.length,totalStudents)} action="Ver foco" onClick={()=>openStudentList('Foco mental baixo/crítico', 'Alunos com foco mental baixo ou crítico.', focusLow, student => `Foco mental: ${metricDisplay((student as any).mentalFocus?.value)}/100 • ${(student as any).mentalFocus?.classification || 'sem classificação'}`)} />
+
+      <section className="rankingStage card">
+        <div className="rankingCopy">
+          <span className="dashIcon trophy">🏆</span>
+          <span className="eyebrow">Ranking de registros</span>
+          <h2>Top {Math.min(3, registrationRanking.length || totalStudents)} alunos<br/>com mais registros</h2>
+          <p>Ranking baseado no total de registros concluídos no período disponível.</p>
+          <button className="secondary" onClick={()=>setModal({ title: 'Ranking de registros', description: 'Alunos ordenados pelo total de registros disponíveis para o professor.', items: registrationBase.map(item => studentSummaryRow(item.student, openStudent, `${item.count} registro(s)`)) })}>Ver ranking completo</button>
+        </div>
+        <div className="podiumArea">
+          {podiumItems.map((item, index) => {
+            const place = item === registrationRanking[0] ? 1 : item === registrationRanking[1] ? 2 : 3;
+            return <button className={`podium podium${place}`} key={item.student.id} onClick={()=>openStudent(item.student.id)}>
+              <b>{place}º</b>
+              <StudentAvatar student={item.student} size="lg" />
+              <strong>{item.student.name}</strong>
+              <span>{item.count}</span>
+              <small>registros</small>
+            </button>;
+          })}
+          {!podiumItems.length && <Empty text="Sem registros suficientes para montar o ranking."/>}
+        </div>
+        <div className="trophyArt" aria-hidden="true"><img src="/brand/logo-icon.png" alt="" /></div>
+        <div className="rankingUpdate"><small>Última atualização</small><strong>{updatedAt}</strong></div>
       </section>
-      <section className="teacherDashboardGrid three">
-        <TeacherMetricCard title="Total de alunos" value={totalStudents} description="Alunos ativos cadastrados/retornados pela API." tone="info" onClick={()=>openStudentList('Total de alunos', 'Base completa de alunos ativos retornados pela API.', students)} action="Ver alunos" />
-        <TeacherMetricCard title="Registraram hoje" value={`${todayRegistered.length}/${totalStudents}`} description="Alunos com registro da noite anterior, esperado no check-in de hoje." tone="good" onClick={()=>openStudentList('Registraram hoje', 'Aluno conta aqui quando possui registro da noite anterior à manhã atual.', todayRegistered)} action="Ver lista"><TeacherDonut value={todayRegistered.length} total={totalStudents} tone="good" /></TeacherMetricCard>
-        <TeacherMetricCard title="Alunos em risco" value={riskStudents.length} description="Média dos 3 últimos registros abaixo de 55 ou último score abaixo de 40." tone={toneFromCount(riskStudents.length,totalStudents)} onClick={()=>openStudentList('Alunos em risco', 'Regra A: média dos 3 últimos scores válidos abaixo de 55. Regra B: último score válido abaixo de 40.', riskStudents, student => { const last = getLastValidRecords(getStudentRecords(student),3)[0]; const avg = averageScores(getLastValidRecords(getStudentRecords(student),3)); return `Média recente: ${avg !== undefined ? score(avg) : 'sem dados'} • Último score: ${last ? score(last.scoreTotal) : 'sem dados'}`; })} action="Ver risco"><TeacherDonut value={riskStudents.length} total={totalStudents} tone={toneFromCount(riskStudents.length,totalStudents)} /></TeacherMetricCard>
+
+      <section className="dashboardPeriodBar">
+        <span>▣ Período considerado: <b>Dados disponíveis</b></span>
+        <span>♙ Média da turma: <b>{averageRecords.toFixed(1).replace('.', ',')} registros por aluno</b></span>
       </section>
-      <section className="teacherDashboardGrid three">
-        <TeacherMetricCard title="Alunos com baixa adesão" value={lowAdherence.low.length} description="Menos de 3 registros nos últimos 7 dias." tone={toneFromCount(lowAdherence.low.length,totalStudents)} onClick={()=>openStudentList('Alunos com baixa adesão', 'Separação: baixa adesão = menos de 3 registros em 7 dias; crítico = 0 registros.', lowAdherence.low.map(item=>item.student), student => `${getRecordsLastDays(getStudentRecords(student),7).length} registro(s) nos últimos 7 dias${getRecordsLastDays(getStudentRecords(student),7).length === 0 ? ' • crítico sem registro na semana' : ''}`)} action="Ver adesão"><div className="metricSplit"><span>{lowAdherence.critical.length} crítico(s)</span><small>Sem registro na semana</small></div></TeacherMetricCard>
-        <TeacherMetricCard title="Top 3 Piores Recuperações" value={worstRecovery.length ? `${score(worstRecovery[0].average)}/100` : 'Sem dados'} description="Menores médias dos últimos 3 registros válidos." tone={worstRecovery[0]?.average !== undefined ? levelClass(worstRecovery[0].average) : 'neutral'} action="Abrir lista" onClick={()=>setModal({ title: 'Top 3 Piores Recuperações', description: 'Ranking calculado pela média dos últimos 3 registros válidos. Alunos sem score válido ficam fora do ranking.', items: worstRecovery.map(item => <button className="studentRow" key={item.student.id} onClick={()=>openStudent(item.student.id)}><StudentAvatar student={item.student} size="sm"/><div><strong>{item.student.name}</strong><small>Média: {score(item.average)} • último registro: {item.latest ? brDate(item.latest.date) : 'sem registro'}</small><em>Abrir ficha</em></div><b className={levelClass(item.average)}>{score(item.average)}</b></button>) })}><div className="miniRanking">{worstRecovery.map(item=><span key={item.student.id}>{item.student.name}: <b className={levelClass(item.average)}>{score(item.average)}</b></span>)}{!worstRecovery.length && <small>Sem registros válidos para ranking.</small>}</div></TeacherMetricCard>
-        <TeacherMetricCard title="Alunos em risco de fadiga" value={fatigueStudents.length} description="Conta apenas riscoFinal acima de 75 pela fórmula oficial." tone={toneFromCount(fatigueStudents.length,totalStudents)} action="Ver fadiga" onClick={()=>setModal({ title: 'Alunos em risco de fadiga', description: 'Fórmula: 50% risco por média + 30% queda recente + 20% energia ao acordar.', items: fatigueStudents.map(item => studentSummaryRow(item.student, openStudent, `Risco de fadiga: ${fatigueText(item.fatigue)} • nível ${item.fatigue.level}`)) })}><div className="miniRanking">{fatigueStudents.slice(0,3).map(item=><span key={item.student.id}>{item.student.name}: <b className="danger">{fatigueText(item.fatigue)}</b></span>)}{!fatigueStudents.length && <small>Dados insuficientes ou nenhum aluno acima de 75.</small>}</div></TeacherMetricCard>
+
+      <section className="dashboardAlertTiles">
+        <button className="alertTile info" onClick={()=>openStudentList('Prontidão baixa/crítica', 'Alunos com prontidão para treino em faixa baixa ou crítica.', readinessLow, student => `Prontidão: ${metricDisplay((student as any).readinessScore, '%')} • ${(student as any).readinessClassification || 'sem classificação'}`)}><span>〽</span><div><strong>Prontidão baixa/crítica</strong><b>{readinessLow.length}</b><p>Alunos com prontidão para treino abaixo de 55%.</p></div><em>Ver alunos</em></button>
+        <button className="alertTile purple" onClick={()=>openStudentList('Fadiga alta/crítica', 'Alunos com fadiga geral acima de 70/100.', fatigueHighNew, student => `Fadiga: ${metricDisplay((student as any).fatigue?.value)}/100 • ${(student as any).fatigue?.classification || 'sem classificação'}`)}><span>ϟ</span><div><strong>Fadiga alta/crítica</strong><b>{fatigueHighNew.length}</b><p>Alunos com fadiga geral em faixa alta ou crítica.</p></div><em>Ver alunos</em></button>
+        <button className="alertTile danger" onClick={()=>openStudentList('Risco de sobrecarga alto/crítico', 'Alunos com risco de sobrecarga em faixa alta ou crítica.', overloadHigh, student => `Risco: ${metricDisplay((student as any).overloadRisk?.value)}/100 • ${(student as any).overloadRisk?.classification || 'sem classificação'}`)}><span>!</span><div><strong>Risco de sobrecarga alto/crítico</strong><b>{overloadHigh.length}</b><p>Alunos com risco de sobrecarga acima de 70/100.</p></div><em>Ver alunos</em></button>
+        <button className="alertTile teal" onClick={()=>openStudentList('Estado de alerta baixo/crítico', 'Alunos com estado de alerta baixo ou crítico.', alertnessLow, student => `Estado de alerta: ${metricDisplay((student as any).alertness?.value)}/100 • ${(student as any).alertness?.classification || 'sem classificação'}`)}><span>👁</span><div><strong>Estado de alerta baixo/crítico</strong><b>{alertnessLow.length}</b><p>Alunos com atenção/alerta abaixo de 55/100.</p></div><em>Ver alertas</em></button>
+        <button className="alertTile purple" onClick={()=>openStudentList('Foco mental baixo/crítico', 'Alunos com foco mental baixo ou crítico.', focusLow, student => `Foco mental: ${metricDisplay((student as any).mentalFocus?.value)}/100 • ${(student as any).mentalFocus?.classification || 'sem classificação'}`)}><span>🧠</span><div><strong>Foco mental baixo/crítico</strong><b>{focusLow.length}</b><p>Alunos com foco mental abaixo de 55/100.</p></div><em>Ver foco</em></button>
       </section>
-      <section className="teacherDashboardGrid twoWide">
-        <TeacherMetricCard title="Meta de Sono Não Cumprida" value={goalNotMet.length} description="Alunos com meta ativa e média real de horas abaixo da meta configurada." tone={toneFromCount(goalNotMet.length,totalStudents)} action="Ver metas" onClick={()=>setModal({ title: 'Meta de Sono Não Cumprida', description: 'Não usa meta inventada: só conta aluno com meta ativa definida pelo professor e registros válidos.', items: goalNotMet.map(item => studentSummaryRow(item.student, openStudent, `Média: ${item.goal.averageHours !== null ? hour(item.goal.averageHours) : 'sem dados'} • Meta: ${item.goal.goalHours !== null ? hour(item.goal.goalHours) : 'sem meta'}${item.goal.baseReduced ? ' • base reduzida' : ''}${item.goal.severeDeficit ? ' • déficit severo' : ''}`)) })}><div className="metricSplit"><span>{goalResults.filter(item=>!item.goal.hasGoal).length} sem meta ativa</span><small>Não entram como erro</small></div></TeacherMetricCard>
-        <TeacherMetricCard title="Alertas ativos" value={studentsWithAlerts.length} description="Cada aluno conta uma vez, mesmo com múltiplos alertas ativos." tone={toneFromCount(studentsWithAlerts.length,totalStudents)} action="Abrir alertas" onClick={()=>setModal({ title: 'Alunos com Alertas', description: 'Alertas oficiais calculados pelo backend.', items: studentsWithAlerts.map(item => <button className="studentRow" key={item.student.id} onClick={()=>openStudent(item.student.id)}><StudentAvatar student={item.student} size="sm"/><div><strong>{item.student.name}</strong><small>{item.alerts.length} alerta(s): {item.alerts.slice(0,3).map(alert=>alert.description).join(' | ')}</small><em>Abrir ficha</em></div><b className={severityTone(item.alerts.some(a=>String(a.level).includes('crítica')) ? 'crítica' : item.alerts[0]?.level)}>{item.alerts.length}</b></button>) })}><div className="metricSplit"><span>{allAlerts.length} alerta(s) ativo(s)</span><small>Backend oficial</small></div></TeacherMetricCard>
+
+      <section className="dashboardDeepMetrics" aria-label="Indicadores complementares do dashboard">
+        <button className="deepMetricCard info" onClick={()=>setModal({ title: 'Top 3 menores recuperações corporais', description: 'Ranking pelo indicador recuperação corporal.', items: lowestBodyRecovery.map(item => studentSummaryRow(item.student, openStudent, `Recuperação corporal: ${score(item.value)}/100 • ${(item.student as any).recovery?.classification || 'sem classificação'}`)) })}>
+          <span>🔋</span><div><small>Recuperação corporal</small><strong>{lowestBodyRecovery.length ? `${score(lowestBodyRecovery[0].value)}/100` : 'Sem dados'}</strong><p>Top 3 menores recuperações corporais calculadas pelos indicadores.</p><em>Abrir ranking</em></div>
+        </button>
+        <button className="deepMetricCard warn" onClick={()=>setModal({ title: 'Top 3 Piores Recuperações', description: 'Ranking calculado pela média dos últimos 3 registros válidos. Alunos sem score válido ficam fora do ranking.', items: worstRecovery.map(item => <button className="studentRow" key={item.student.id} onClick={()=>openStudent(item.student.id)}><StudentAvatar student={item.student} size="sm"/><div><strong>{item.student.name}</strong><small>Média: {score(item.average)} • último registro: {item.latest ? brDate(item.latest.date) : 'sem registro'}</small><em>Abrir ficha</em></div><b className={levelClass(item.average)}>{score(item.average)}</b></button>) })}>
+          <span>📉</span><div><small>Top 3 piores recuperações</small><strong>{worstRecovery.length ? `${score(worstRecovery[0].average)}/100` : 'Sem dados'}</strong><p>Menores médias dos últimos 3 registros válidos.</p><em>Abrir lista</em></div>
+        </button>
+        <button className="deepMetricCard purple" onClick={()=>setModal({ title: 'Alunos em risco de fadiga', description: 'Fórmula: 50% risco por média + 30% queda recente + 20% energia ao acordar.', items: fatigueStudents.map(item => studentSummaryRow(item.student, openStudent, `Risco de fadiga: ${fatigueText(item.fatigue)} • nível ${item.fatigue.level}`)) })}>
+          <span>😵‍💫</span><div><small>Risco de fadiga</small><strong>{fatigueStudents.length}</strong><p>Conta apenas risco final acima de 75 pela fórmula oficial.</p><em>Ver fadiga</em></div>
+        </button>
+        <button className="deepMetricCard danger" onClick={()=>setModal({ title: 'Meta de Sono Não Cumprida', description: 'Não usa meta inventada: só conta aluno com meta ativa definida pelo professor e registros válidos.', items: goalNotMet.map(item => studentSummaryRow(item.student, openStudent, `Média: ${item.goal.averageHours !== null ? hour(item.goal.averageHours) : 'sem dados'} • Meta: ${item.goal.goalHours !== null ? hour(item.goal.goalHours) : 'sem meta'}${item.goal.baseReduced ? ' • base reduzida' : ''}${item.goal.severeDeficit ? ' • déficit severo' : ''}`)) })}>
+          <span>🌙</span><div><small>Meta de sono não cumprida</small><strong>{goalNotMet.length}</strong><p>Alunos com meta ativa e média real abaixo da meta configurada.</p><em>Ver metas</em></div>
+        </button>
+        <button className="deepMetricCard teal" onClick={()=>setModal({ title: 'Alunos com Alertas', description: 'Alertas oficiais calculados pelo backend.', items: studentsWithAlerts.map(item => <button className="studentRow" key={item.student.id} onClick={()=>openStudent(item.student.id)}><StudentAvatar student={item.student} size="sm"/><div><strong>{item.student.name}</strong><small>{item.alerts.length} alerta(s): {item.alerts.slice(0,3).map(alert=>alert.description).join(' | ')}</small><em>Abrir ficha</em></div><b className={severityTone(item.alerts.some(a=>String(a.level).includes('crítica')) ? 'crítica' : item.alerts[0]?.level)}>{item.alerts.length}</b></button>) })}>
+          <span>🚨</span><div><small>Alertas ativos</small><strong>{studentsWithAlerts.length}</strong><p>Cada aluno conta uma vez, mesmo com múltiplos alertas ativos.</p><em>Abrir alertas</em></div>
+        </button>
       </section>
     </>}
   </Shell>;
@@ -1106,10 +1178,11 @@ function normalizeText(value?: string) { return String(value || '').normalize('N
 
 function recordDateKey(record?: Pick<SleepRecord, 'date'> | null) { return record?.date ? String(record.date).slice(0, 10) : ''; }
 function recordTimeMs(record?: Pick<SleepRecord, 'date'> | null) { const d = safeDate(record?.date); return d ? d.getTime() : 0; }
-function sortRecordsRecent(records: SleepRecord[]) { return [...records].sort((a,b)=>recordTimeMs(b)-recordTimeMs(a)); }
-function filterRecordsByRange(records: SleepRecord[], range: '7'|'30'|'all') {
-  if (range === 'all') return sortRecordsRecent(records);
-  return getRecordsLastDays(records, Number(range));
+function sortRecordsRecent(records: SleepRecord[] | undefined | null) { return normalizeArray<SleepRecord>(records).filter(Boolean).sort((a,b)=>recordTimeMs(b)-recordTimeMs(a)); }
+function filterRecordsByRange(records: SleepRecord[] | undefined | null, range: '7'|'30'|'all') {
+  const safeRecords = normalizeArray<SleepRecord>(records);
+  if (range === 'all') return sortRecordsRecent(safeRecords);
+  return getRecordsLastDays(safeRecords, Number(range));
 }
 function scoreNumberFromRecord(record?: SleepRecord | null) { return hasNumber(record?.scoreTotal) ? Number(record?.scoreTotal) : undefined; }
 function studentSortValue(student: StudentListItem, mode: string) {
@@ -1209,20 +1282,36 @@ function TeacherStudents(){
     .filter(s=>!query || getStudentSearchText(s).includes(query))
     .sort((a,b)=> sortMode === 'nome' ? normalizeText(a.name).localeCompare(normalizeText(b.name)) : studentSortValue(a, sortMode)-studentSortValue(b, sortMode));
 
+  const studentsWithRecentRecord = students.filter(student => Boolean(student.lastRecord));
+  const riskTotal = students.filter(student => priorityFromStudent(student) === 'alta' || String((student as any).risk || '').toLowerCase().includes('alto')).length;
+  const lowAdherenceTotal = students.filter(student => Boolean((student as any).isLowAdherence) || priorityFromStudent(student) === 'moderada').length;
+  const radarStudents = [...students]
+    .sort((a,b)=>studentSortValue(a,'prioridade')-studentSortValue(b,'prioridade'))
+    .slice(0,3);
+
   return <Shell title="Alunos" eyebrow="LISTA DE ALUNOS" subtitle="Cards premium com dados reais de sono, prontidão, risco e adesão." backTo="/professor" nav={<TeacherNav/>}>
     <StudentDetailModal studentId={selectedStudentId} onClose={()=>setSelectedStudentId(null)}/>
-    <section className="card teacherControlPanel">
-      <div className="sectionHeader">
-        <div><h3>Lista de alunos</h3><p>Busca, prioridade e ficha integrada sem abrir página separada.</p></div>
-        <input className="search" placeholder="Buscar aluno por nome, e-mail ou login" value={search} onChange={e=>setSearch(e.target.value)}/>
+    <section className="studentsStatRow">
+      <article className="studentStatCard info"><span>♙</span><div><small>Total de alunos</small><strong>{students.length}</strong><p>alunos cadastrados</p></div><i /></article>
+      <article className="studentStatCard good"><span>✓</span><div><small>Com registro recente</small><strong>{studentsWithRecentRecord.length}</strong><p>{students.length ? Math.round((studentsWithRecentRecord.length/students.length)*100) : 0}% do total</p></div><i /></article>
+      <article className="studentStatCard danger"><span>!</span><div><small>Em alerta</small><strong>{riskTotal}</strong><p>{students.length ? Math.round((riskTotal/students.length)*100) : 0}% do total</p></div><i /></article>
+      <article className="studentStatCard warn"><span>↗</span><div><small>Baixa adesão</small><strong>{lowAdherenceTotal}</strong><p>{students.length ? Math.round((lowAdherenceTotal/students.length)*100) : 0}% do total</p></div><i /></article>
+    </section>
+    <section className="studentsMainHead">
+      <div className="studentsControls">
+        <input className="search" placeholder="Buscar aluno por nome, e-mail ou iniciais..." value={search} onChange={e=>setSearch(e.target.value)}/>
+        <div className="filterBar"><button className={sortMode==='prioridade'?'active':''} onClick={()=>setSortMode('prioridade')}>☆ Prioridade</button><button className={sortMode==='nome'?'active':''} onClick={()=>setSortMode('nome')}>A-Z</button><button className={sortMode==='recent'?'active':''} onClick={()=>setSortMode('recent')}>Mais recentes</button><button className={sortMode==='score'?'active':''} onClick={()=>setSortMode('score')}>Pior score</button><button className={sortMode==='sem-registro'?'active':''} onClick={()=>setSortMode('sem-registro')}>Sem registro</button><span className="filterSelect">Todos os status</span><span className="filterSelect">Todas as turmas</span></div>
+        <div className="filterBar statusFilterBar">
+          <button className={statusFilter==='active'?'active':''} onClick={()=>setStatusFilter('active')}>Ativos</button>
+          <button className={statusFilter==='archived'?'active':''} onClick={()=>setStatusFilter('archived')}>Arquivados</button>
+          <button className={statusFilter==='all'?'active':''} onClick={()=>setStatusFilter('all')}>Todos</button>
+        </div>
       </div>
-      <div className="filterBar"><button className={sortMode==='prioridade'?'active':''} onClick={()=>setSortMode('prioridade')}>Prioridade</button><button className={sortMode==='nome'?'active':''} onClick={()=>setSortMode('nome')}>A-Z</button><button className={sortMode==='recent'?'active':''} onClick={()=>setSortMode('recent')}>Mais recentes</button><button className={sortMode==='score'?'active':''} onClick={()=>setSortMode('score')}>Pior score</button><button className={sortMode==='sem-registro'?'active':''} onClick={()=>setSortMode('sem-registro')}>Sem registro</button></div>
-      {/* Filtro de status dos alunos */}
-      <div className="filterBar statusFilterBar">
-        <button className={statusFilter==='active'?'active':''} onClick={()=>setStatusFilter('active')}>Ativos</button>
-        <button className={statusFilter==='archived'?'active':''} onClick={()=>setStatusFilter('archived')}>Arquivados</button>
-        <button className={statusFilter==='all'?'active':''} onClick={()=>setStatusFilter('all')}>Todos</button>
-      </div>
+      <aside className="attentionRadar">
+        <div className="radarTitle"><span>◎</span><strong>RADAR DE ATENÇÃO</strong><button onClick={()=>navigate('/professor/alertas')}>Ver todos os alertas →</button></div>
+        <div className="radarList">{radarStudents.map(student => <button key={student.id} onClick={()=>setSelectedStudentId(student.id)}><StudentAvatar student={student} size="sm"/><div><strong>{student.name}</strong><small>{student.email || student.login || student.username || 'sem e-mail/login'}</small></div><b className={riskClass(priorityFromStudent(student))}>{priorityFromStudent(student) === 'alta' ? 'Risco alto' : priorityFromStudent(student) === 'moderada' ? 'Risco médio' : priorityFromStudent(student)}</b><span>Score <em>{score(scoreValueFromStudent(student))}</em></span></button>)}{!radarStudents.length && <Empty text="Sem alunos para exibir no radar."/>}</div>
+        <small>Atualizado com os dados disponíveis da API.</small>
+      </aside>
     </section>
     {error && <div className="error premiumError">{error}</div>}
     {loading ? <LoadingCard/> : <section className="studentCardGrid">{filtered.map(s=><StudentProfileCard key={s.id} student={s} onOpen={(studentId)=>studentId && setSelectedStudentId(studentId)}/>)}{!filtered.length && <Empty text="Nenhum aluno encontrado."/>}</section>}
@@ -1232,18 +1321,76 @@ function TeacherStudents(){
 function TeacherAccesses(){
   const [students,setStudents]=useState<StudentListItem[]>([]);
   const [search,setSearch]=useState('');
+  const [statusFilter,setStatusFilter]=useState<'todos'|'ativo'|'sem-registro'|'bloqueado'>('todos');
+  const [trackingFilter,setTrackingFilter]=useState<'todos'|'com-registro'|'sem-dados'>('todos');
+  const [priorityFilter,setPriorityFilter]=useState<'todas'|'normal'|'moderada'|'alta'>('todas');
+  const [sortMode,setSortMode]=useState<'ultimo'|'nome'|'prioridade'>('ultimo');
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const navigate=useNavigate();
   const openStudent = (studentId: number | string | undefined) => openStudentInStudentsPage(navigate, studentId);
   useEffect(()=>{setLoading(true); setError(''); loadTeacherStudentsList().then(setStudents).catch(err=>setError(messageFromError(err))).finally(()=>setLoading(false));},[]);
+
   const q = normalizeText(search);
-  const filtered = students.filter(s=>!q || normalizeText(`${getStudentSearchText(s)} ${s.status || ''}`).includes(q)).sort((a,b)=>normalizeText(a.name).localeCompare(normalizeText(b.name)));
-  return <Shell title="Acessos" eyebrow="ACESSOS" subtitle="Dados operacionais reais de conta, login e último registro disponível." backTo="/professor" nav={<TeacherNav/>}>
-    <section className="card teacherControlPanel"><div className="sectionHeader"><div><h3>Logins e acessos dos alunos</h3><p>Use esta tela para encontrar rapidamente o e-mail/login do aluno. Senhas não são exibidas por segurança.</p></div><input className="search" placeholder="Buscar nome, e-mail ou login" value={search} onChange={e=>setSearch(e.target.value)}/></div></section>
-    {error && <div className="error premiumError">{error}</div>}
-    {loading ? <LoadingCard/> : <div className="accessGrid">{filtered.map(s=><article className="accessCard" key={s.id}><div className="accessCardHeader"><StudentAvatar student={s} size="md"/><div><span className="eyebrow">Aluno</span><h3>{s.name}</h3><p>{s.email || s.login || s.username || 'E-mail/login não informado'}</p></div></div><div className="accessMetaGrid"><span><small>Status</small><b>{userStatusLabel(s)}</b></span><span><small>Acompanhamento</small><b>{s.trackingStatus || statusFromStudent(s)}</b></span><span><small>Prioridade</small><b className={riskClass(s.priority || priorityFromStudent(s))}>{s.priority || priorityFromStudent(s)}</b></span><span><small>Último registro</small><b>{s.lastRecord ? brDate(s.lastRecord.date) : 'sem registro'}</b></span></div><div className="accessActions"><button className="secondary" onClick={()=>navigator.clipboard?.writeText(s.email || s.login || s.username || '')}>Copiar e-mail</button><button className="primary" onClick={()=>openStudent(s.id)}>Abrir ficha</button></div></article>)}{!filtered.length && <Empty text="Nenhum aluno encontrado."/>}</div>}
+  const blockedStudents = students.filter(s=>['blocked','bloqueado','deleted','deletado'].includes(normalizeText((s as any).studentStatus || (s as any).status)));
+  const activeStudents = students.filter(s=>!blockedStudents.some(blocked=>blocked.id===s.id));
+  const withoutExpectedRecord = students.filter(s=>!getStudentRecords(s).some(record=>isExpectedSleepCheckInRecordDate(record.date)));
+  const filtered = students
+    .filter(s=>!q || normalizeText(`${getStudentSearchText(s)} ${s.status || ''}`).includes(q))
+    .filter(s=>statusFilter==='todos' || (statusFilter==='ativo' && activeStudents.some(active=>active.id===s.id)) || (statusFilter==='sem-registro' && withoutExpectedRecord.some(item=>item.id===s.id)) || (statusFilter==='bloqueado' && blockedStudents.some(item=>item.id===s.id)))
+    .filter(s=>trackingFilter==='todos' || (trackingFilter==='com-registro' && Boolean(s.lastRecord)) || (trackingFilter==='sem-dados' && !s.lastRecord))
+    .filter(s=>priorityFilter==='todas' || priorityFromStudent(s)===priorityFilter)
+    .sort((a,b)=> sortMode === 'nome' ? normalizeText(a.name).localeCompare(normalizeText(b.name)) : sortMode === 'prioridade' ? studentSortValue(a,'prioridade')-studentSortValue(b,'prioridade') : recordTimeMs(b.lastRecord)-recordTimeMs(a.lastRecord));
+
+  return <Shell title="Acessos" eyebrow="ACESSOS" subtitle="Gerencie logins e acessos dos alunos de forma rápida e segura." backTo="/professor" nav={<TeacherNav/>}>
+    <section className="accessHeroArt" aria-hidden="true"><span>♜</span></section>
+    <section className="accessStatRow">
+      <article className="accessStatCard info"><span>♙</span><div><strong>{students.length}</strong><b>Total de acessos</b><p>Alunos com acesso ao sistema</p></div></article>
+      <article className="accessStatCard good"><span>✓</span><div><strong>{activeStudents.length}</strong><b>Ativos</b><p>Com acesso liberado</p></div></article>
+      <article className="accessStatCard warn"><span>◷</span><div><strong>{withoutExpectedRecord.length}</strong><b>Sem registro hoje</b><p>Não acessaram hoje</p></div></article>
+      <article className="accessStatCard purple"><span>♜</span><div><strong>{blockedStudents.length}</strong><b>Bloqueados</b><p>Acesso restrito</p></div></article>
+    </section>
+    <section className="accessPanel card">
+      <div className="accessFiltersTop">
+        <input className="search" placeholder="Buscar nome, e-mail ou login..." value={search} onChange={e=>setSearch(e.target.value)}/>
+        <label>Status<select value={statusFilter} onChange={e=>setStatusFilter(e.target.value as any)}><option value="todos">Todos</option><option value="ativo">Ativos</option><option value="sem-registro">Sem registro hoje</option><option value="bloqueado">Bloqueados</option></select></label>
+        <label>Acompanhamento<select value={trackingFilter} onChange={e=>setTrackingFilter(e.target.value as any)}><option value="todos">Todos</option><option value="com-registro">Com registro</option><option value="sem-dados">Sem dados</option></select></label>
+        <label>Prioridade<select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value as any)}><option value="todas">Todas</option><option value="normal">Normal</option><option value="moderada">Moderada</option><option value="alta">Alta</option></select></label>
+        <button className="secondary" onClick={()=>{setSearch(''); setStatusFilter('todos'); setTrackingFilter('todos'); setPriorityFilter('todas');}}>↻ Limpar filtros</button>
+      </div>
+      <div className="activeFilterPills"><span>Filtros ativos:</span><b>Status: {statusFilter}</b><b>Acompanhamento: {trackingFilter}</b><b>Prioridade: {priorityFilter}</b><label>Ordenar por:<select value={sortMode} onChange={e=>setSortMode(e.target.value as any)}><option value="ultimo">Último registro</option><option value="nome">Nome</option><option value="prioridade">Prioridade</option></select></label></div>
+      {error && <div className="error premiumError">{error}</div>}
+      {loading ? <LoadingCard/> : <div className="accessTableWrap"><table className="accessTable"><thead><tr><th>Aluno</th><th>E-mail / Login</th><th>Status</th><th>Acompanhamento</th><th>Prioridade</th><th>Último registro ↓</th><th>Ações</th></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><div className="accessStudentCell"><StudentAvatar student={s} size="md"/><strong>{s.name}</strong></div></td><td>{s.email || s.login || s.username || 'E-mail/login não informado'}</td><td><b className={`statusBadge ${s.lastRecord ? 'good' : 'warn'}`}>{userStatusLabel(s)}</b></td><td><b className="statusBadge good">{s.trackingStatus || statusFromStudent(s)}</b></td><td><b className={`statusBadge ${riskClass(s.priority || priorityFromStudent(s))}`}>{s.priority || priorityFromStudent(s)}</b></td><td>{s.lastRecord ? brDate(s.lastRecord.date) : 'sem registro'}</td><td><div className="accessRowActions"><button className="secondary" onClick={()=>navigator.clipboard?.writeText(s.email || s.login || s.username || '')}>✉ Copiar e-mail</button><button className="primary" onClick={()=>openStudent(s.id)}>▣ Abrir ficha</button><button className="ghost">⋮</button></div></td></tr>)}</tbody></table>{!filtered.length && <Empty text="Nenhum aluno encontrado."/>}</div>}
+      <footer className="accessTableFooter"><span>Mostrando {filtered.length} de {students.length} alunos</span><span>Itens por página: <b>10</b></span></footer>
+    </section>
   </Shell>;
+}
+
+
+function quickMessageStudent(student?: DashboardStudent, fallbackName?: string) {
+  const email = String(student?.email || student?.login || student?.username || '').trim();
+  const name = student?.name || fallbackName || 'aluno';
+  const subject = `Acompanhamento Neuroformance EA - ${name}`;
+  const body = `Olá, ${name}. Estou entrando em contato sobre seus alertas recentes no Neuroformance EA.`;
+  if (email && email.includes('@')) {
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    return;
+  }
+  window.alert('Este aluno não possui e-mail/login válido cadastrado para envio de mensagem.');
+}
+
+function saveAlertObservation(student?: DashboardStudent, fallbackName?: string) {
+  const name = student?.name || fallbackName || 'Aluno sem identificação';
+  const text = window.prompt(`Adicionar observação para ${name}:`);
+  if (!text || !text.trim()) return;
+  const key = `neuroformance-alert-observations-${student?.id || normalizeText(name)}`;
+  const previous = (() => {
+    try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
+  })();
+  const next = Array.isArray(previous) ? previous : [];
+  next.unshift({ text: text.trim(), createdAt: new Date().toISOString(), studentId: student?.id || null, studentName: name });
+  localStorage.setItem(key, JSON.stringify(next.slice(0, 50)));
+  window.alert('Observação salva neste navegador.');
 }
 
 function alertPriority(alert: AlertItem) {
@@ -1259,6 +1406,245 @@ function alertPriorityLabel(priority: number) {
   return priority === 0 ? 'Crítico' : priority === 1 ? 'Alto' : priority === 2 ? 'Moderado' : priority === 3 ? 'Baixo' : 'Acompanhar';
 }
 
+
+function translateAlertLabel(value?: string | null) {
+  const raw = String(value || '').trim();
+  const n = normalizeText(raw);
+  if (!raw) return 'Acompanhar';
+  if (n === 'warning' || n.includes('warning') || n.includes('moderate') || n.includes('moderado') || n.includes('moderada')) return 'Atenção';
+  if (n.includes('critical') || n.includes('critico') || n.includes('critica')) return 'Crítico';
+  if (n === 'high' || n.includes('alto') || n.includes('alta') || n.includes('elevado') || n.includes('elevada')) return 'Alto';
+  if (n === 'low' || n.includes('baixo') || n.includes('baixa')) return 'Baixa prioridade';
+  if (n.includes('info') || n.includes('acompanhar')) return 'Acompanhar';
+  return raw;
+}
+
+function alertDisplayLevel(alert: AlertItem) {
+  return translateAlertLabel(alert.level || severityToLevel(alert.severity) || alert.status || alert.priority);
+}
+
+function profileBlockTitle(title?: string) {
+  const raw = String(title || '').trim();
+  const n = normalizeText(raw);
+  if (n.includes('resumo dos ultimos 7 dias')) return 'Recuperação | 7 dias';
+  if (n.includes('resumo dos ultimos 30 dias')) return 'Recuperação | 30 dias';
+  if (n.includes('comparacao com a semana anterior')) return 'Semana anterior';
+  if (n.includes('tendencia de recuperacao corporal')) return 'Recuperação corporal';
+  if (n.includes('tendencia de fadiga geral')) return 'Fadiga geral';
+  if (n.includes('tendencia de prontidao para treino')) return 'Prontidão para treino';
+  if (n.includes('risco atual do aluno')) return 'Risco atual';
+  if (n.includes('adesao recente aos registros')) return 'Adesão ao app | 7 dias';
+  if (n.includes('pontos fortes do aluno')) return 'Pontos fortes';
+  if (n.includes('pontos de atencao do aluno')) return 'Pontos de atenção';
+  if (n.includes('melhor padrao recente')) return 'Melhor padrão de sono';
+  if (n.includes('pior padrao recente')) return 'Pior padrão de sono';
+  if (n.includes('recomendacao de ajuste de treino')) return 'Ajuste de treino';
+  if (n.includes('recomendacao de contato com o aluno')) return 'Contato com o aluno';
+  if (n.includes('historico de alertas recentes')) return 'Alertas recentes';
+  if (n.includes('resposta apos orientacao anterior')) return 'Resposta à orientação';
+  return raw || 'Insight do aluno';
+}
+
+function profileBlockExplanation(title?: string) {
+  const n = normalizeText(String(title || ''));
+  if (n.includes('resumo dos ultimos 7 dias')) return 'Média do score nos últimos 7 dias.';
+  if (n.includes('resumo dos ultimos 30 dias')) return 'Média do score nos últimos 30 dias.';
+  if (n.includes('comparacao com a semana anterior')) return 'Diferença contra os 7 dias anteriores.';
+  if (n.includes('tendencia de recuperacao corporal')) return 'Direção da recuperação nos registros recentes.';
+  if (n.includes('tendencia de fadiga geral')) return 'Direção da fadiga; menor é melhor.';
+  if (n.includes('tendencia de prontidao para treino')) return 'Direção da prontidão para treinar.';
+  if (n.includes('risco atual do aluno')) return 'Risco calculado por alertas, score e registros.';
+  if (n.includes('adesao recente aos registros')) return 'Dias registrados nos últimos 7 dias.';
+  if (n.includes('pontos fortes do aluno')) return 'Fatores positivos dos dados recentes.';
+  if (n.includes('pontos de atencao do aluno')) return 'Fatores que pedem acompanhamento.';
+  if (n.includes('melhor padrao recente')) return 'O que aparece nos melhores scores.';
+  if (n.includes('pior padrao recente')) return 'O que aparece nos piores scores.';
+  if (n.includes('recomendacao de ajuste de treino')) return 'Conduta sugerida pelos dados atuais.';
+  if (n.includes('recomendacao de contato com o aluno')) return 'Se vale chamar o aluno para ajuste.';
+  if (n.includes('historico de alertas recentes')) return 'Alertas que impactam o acompanhamento.';
+  if (n.includes('resposta apos orientacao anterior')) return 'Antes/depois da última orientação.';
+  return '';
+}
+
+function listFromText(text?: string) {
+  return String(text || '')
+    .split(/(?:\.|;|\n)+/)
+    .map(item => item.trim().replace(/^[-•]\s*/, ''))
+    .filter(Boolean);
+}
+
+function displayText(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(displayText).filter(Boolean).join(', ');
+  if (typeof value === 'object') {
+    const preferred = value.message ?? value.description ?? value.label ?? value.title ?? value.value ?? value.name ?? '';
+    const text = displayText(preferred);
+    return text || 'Dado disponível, mas sem texto exibível.';
+  }
+  return String(value);
+}
+
+function averageNumber(values: Array<number | undefined | null>) {
+  const clean = values.map(Number).filter(hasNumber);
+  if (!clean.length) return null;
+  return clean.reduce((sum, value) => sum + value, 0) / clean.length;
+}
+
+function patternSummary(records: SleepRecord[] | undefined | null, mode: 'best' | 'worst') {
+  const usable = normalizeArray<SleepRecord>(records).filter(record => hasNumber(record?.scoreTotal));
+  if (!usable.length) return 'Ainda não há registros suficientes para identificar um padrão real. Melhor isso do que fingir estatística com fumaça.';
+  const ordered = [...usable].sort((a,b)=> mode === 'best' ? Number(b.scoreTotal) - Number(a.scoreTotal) : Number(a.scoreTotal) - Number(b.scoreTotal)).slice(0, Math.min(3, usable.length));
+  const avgScore = averageNumber(ordered.map(r => r.scoreTotal));
+  const avgHours = averageNumber(ordered.map(r => r.totalHours));
+  const avgAwakenings = averageNumber(ordered.map(r => r.awakenings));
+  const avgStress = averageNumber(ordered.map(r => r.stress));
+  const avgEnergy = averageNumber(ordered.map(r => r.energy));
+  const parts: string[] = [];
+  if (avgHours !== null) parts.push(`sono médio de ${avgHours.toFixed(1)}h`);
+  if (avgAwakenings !== null) parts.push(`${avgAwakenings.toFixed(1)} despertar(es) em média`);
+  if (avgStress !== null) parts.push(`estresse médio ${avgStress.toFixed(1)}/5`);
+  if (avgEnergy !== null) parts.push(`energia média ${avgEnergy.toFixed(1)}/5 ao acordar`);
+  const intro = mode === 'best' ? `Nos melhores registros carregados (score médio ${score(avgScore ?? undefined)}/100), o padrão foi` : `Nos piores registros carregados (score médio ${score(avgScore ?? undefined)}/100), o padrão foi`;
+  const use = mode === 'best' ? 'Use isso como referência prática para orientar rotina, sono e carga de treino.' : 'Use isso para decidir se precisa reduzir carga, reforçar recuperação ou conversar com o aluno.';
+  return `${intro}: ${parts.length ? parts.join(', ') : 'dados complementares incompletos'}. ${use}`;
+}
+
+function orientationResponseSummary(records: SleepRecord[] | undefined | null, observations: any[] | undefined | null) {
+  const safeRecords = normalizeArray<SleepRecord>(records);
+  const sortedObs = normalizeArray<any>(observations).filter(o => o?.date || o?.createdAt).sort((a,b)=> new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime());
+  if (!sortedObs.length) return 'Nenhuma orientação registrada até o momento. Assim que o professor registrar uma conduta, o app poderá comparar os registros anteriores e posteriores.';
+  const orientationDate = new Date(sortedObs[0].date || sortedObs[0].createdAt).getTime();
+  const before = safeRecords.filter(r => new Date(r.date).getTime() < orientationDate).slice(0, 7);
+  const after = safeRecords.filter(r => new Date(r.date).getTime() >= orientationDate).slice(0, 7);
+  const beforeAvg = averageNumber(before.map(r => r.scoreTotal));
+  const afterAvg = averageNumber(after.map(r => r.scoreTotal));
+  if (beforeAvg === null || afterAvg === null) return 'Existe orientação registrada, mas ainda faltam registros antes/depois suficientes para medir resposta automática com segurança.';
+  const diff = afterAvg - beforeAvg;
+  const direction = diff > 2 ? 'melhorou' : diff < -2 ? 'piorou' : 'ficou estável';
+  return `Após a última orientação, o score médio ${direction}: antes ${score(beforeAvg)}/100, depois ${score(afterAvg)}/100. Use essa comparação para avaliar se a conduta funcionou.`;
+}
+
+type TrendTone = 'good' | 'warn' | 'danger' | 'neutral';
+type TrendInfo = { arrow: '↑' | '↓' | '→'; label: string; tone: TrendTone; detail?: string };
+
+function compareTrend(current: number | null | undefined, previous: number | null | undefined, higherIsBetter = true, labelPrefix = ''): TrendInfo {
+  if (!hasNumber(current) || !hasNumber(previous)) return { arrow: '→', label: 'Sem comparação', tone: 'neutral' };
+  const diff = Number(current) - Number(previous);
+  if (Math.abs(diff) < 2) return { arrow: '→', label: `${labelPrefix}Estável`.trim(), tone: 'neutral', detail: `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}` };
+  const rising = diff > 0;
+  const goodMovement = higherIsBetter ? rising : !rising;
+  return { arrow: rising ? '↑' : '↓', label: `${labelPrefix}${rising ? 'Subindo' : 'Descendo'}`.trim(), tone: goodMovement ? 'good' : 'danger', detail: `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}` };
+}
+
+function metricFromRecord(record: SleepRecord | undefined | null, mapper: (record: SleepRecord) => any) {
+  if (!record) return undefined;
+  try {
+    return safeMetricNumber(mapper(record));
+  } catch {
+    return undefined;
+  }
+}
+
+function averageMetric(records: SleepRecord[] | undefined | null, mapper: (record: SleepRecord) => any) {
+  const safeRecords = normalizeArray<SleepRecord>(records);
+  return averageNumber(safeRecords.map(record => metricFromRecord(record, mapper)));
+}
+
+function scorePeriodTrend(records: SleepRecord[] | undefined | null, currentCount: number, previousCount = currentCount) {
+  const valid = sortRecordsRecent(normalizeArray<SleepRecord>(records)).filter(record => safeScore(record?.scoreTotal) !== undefined);
+  const current = valid.slice(0, currentCount);
+  let previous = valid.slice(currentCount, currentCount + previousCount);
+  if (!previous.length && valid.length >= 2) previous = valid.slice(1, 2);
+  return compareTrend(averageMetric(current, record => record.scoreTotal), averageMetric(previous, record => record.scoreTotal), true);
+}
+
+function oneRecordMetricTrend(records: SleepRecord[] | undefined | null, mapper: (record: SleepRecord) => any, higherIsBetter = true) {
+  const valid = sortRecordsRecent(normalizeArray<SleepRecord>(records)).filter(record => metricFromRecord(record, mapper) !== undefined);
+  return compareTrend(metricFromRecord(valid[0], mapper), metricFromRecord(valid[1], mapper), higherIsBetter);
+}
+
+function adherenceTrend(records: SleepRecord[] | undefined | null) {
+  const ordered = sortRecordsRecent(normalizeArray<SleepRecord>(records));
+  const recentDays = new Set(ordered.slice(0, 7).map(record => normalizeLocalDate(record.date)).filter(Boolean)).size;
+  const previousDays = new Set(ordered.slice(7, 14).map(record => normalizeLocalDate(record.date)).filter(Boolean)).size;
+  if (!previousDays && ordered.length >= 2) return compareTrend(recentDays, Math.min(6, new Set(ordered.slice(1, 8).map(record => normalizeLocalDate(record.date)).filter(Boolean)).size), true);
+  return compareTrend(recentDays, previousDays, true);
+}
+
+function profileBlockTrend(title: string, records: SleepRecord[] | undefined | null, value: any): TrendInfo {
+  const safeRecords = normalizeArray<SleepRecord>(records);
+  const n = normalizeText(title);
+  const numericValue = safeMetricNumber(value);
+  if (n.includes('resumo dos ultimos 7 dias')) return scorePeriodTrend(safeRecords, 7);
+  if (n.includes('resumo dos ultimos 30 dias')) return scorePeriodTrend(safeRecords, 30);
+  if (n.includes('comparacao com a semana anterior') && numericValue !== undefined) return compareTrend(numericValue, 0, true);
+  if (n.includes('tendencia de recuperacao corporal')) return oneRecordMetricTrend(safeRecords, record => record.scoreTotal, true);
+  if (n.includes('tendencia de fadiga geral')) return oneRecordMetricTrend(safeRecords, record => record.generalPain ?? record.bodyHeaviness, false);
+  if (n.includes('tendencia de prontidao para treino')) return oneRecordMetricTrend(safeRecords, record => record.scoreTotal, true);
+  if (n.includes('risco atual do aluno')) return scorePeriodTrend(safeRecords, 3);
+  if (n.includes('adesao recente aos registros')) return adherenceTrend(safeRecords);
+  if (n.includes('melhor padrao recente') || n.includes('pior padrao recente') || n.includes('pontos fortes') || n.includes('pontos de atencao') || n.includes('recomendacao')) return scorePeriodTrend(safeRecords, 3);
+  if (n.includes('historico de alertas recentes') || n.includes('resposta apos orientacao anterior')) return scorePeriodTrend(safeRecords, 7);
+  return { arrow: '→', label: 'Sem comparação', tone: 'neutral' };
+}
+
+function TrendBadge({ trend }: { trend: TrendInfo }) {
+  return <em className={`trendBadge ${trend.tone}`} title={trend.detail ? `Variação: ${trend.detail}` : trend.label}><i>{trend.arrow}</i><small>{trend.label}</small></em>;
+}
+
+function renderProfileBlock(block: any, records: SleepRecord[] | undefined | null, observations: any[] | undefined | null) {
+  const safeRecords = normalizeArray<SleepRecord>(records);
+  const originalTitle = String(block?.title || '');
+  const n = normalizeText(originalTitle);
+  const title = profileBlockTitle(originalTitle);
+  const explanation = profileBlockExplanation(originalTitle);
+  const rawValue = block?.value;
+  const value = displayText(rawValue);
+  const trend = profileBlockTrend(originalTitle, safeRecords, rawValue);
+  let content: React.ReactNode = displayText(block?.message || block?.description || '');
+  if (n.includes('pontos fortes do aluno')) {
+    const items = listFromText(block?.message || block?.description || 'Boa recuperação recente. Boa adesão aos registros do app. Resposta favorável aos padrões recentes de sono e recuperação.');
+    content = <ul>{items.map((item, index)=><li key={index}>{item}</li>)}</ul>;
+  } else if (n.includes('melhor padrao recente')) {
+    content = patternSummary(safeRecords, 'best');
+  } else if (n.includes('pior padrao recente')) {
+    content = patternSummary(safeRecords, 'worst');
+  } else if (n.includes('resposta apos orientacao anterior')) {
+    content = orientationResponseSummary(safeRecords, observations);
+  }
+  const key = displayText(block?.id || originalTitle || title || 'profile-block');
+  return <article className={`profileInsightBlock ${riskClass(block?.severity || block?.priority)}`} key={key}>
+    <div className="profileInsightTop"><span>{title}</span><TrendBadge trend={trend}/></div>
+    {value !== '' && <strong>{value}</strong>}
+    {explanation && <small>{explanation}</small>}
+    {typeof content === 'string' ? <p>{content}</p> : content}
+  </article>;
+}
+
+function indicatorTone(value: any, classification: any, inverted = false) {
+  const n = normalizeText(String(classification || ''));
+  const numeric = Number(value);
+  if (n.includes('critico') || n.includes('critica') || n.includes('alto') || n.includes('alta') || n.includes('elevado') || n.includes('elevada')) return inverted ? 'danger' : 'danger';
+  if (n.includes('moderado') || n.includes('moderada') || n.includes('medio') || n.includes('médio') || n.includes('atencao')) return 'warn';
+  if (n.includes('baixo') || n.includes('baixa') || n.includes('controlado') || n.includes('controlada') || n.includes('bom') || n.includes('boa') || n.includes('excelente') || n.includes('normal')) return 'good';
+  if (hasNumber(numeric)) {
+    if (inverted) return numeric <= 40 ? 'good' : numeric <= 69 ? 'warn' : 'danger';
+    return numeric >= 70 ? 'good' : numeric >= 45 ? 'warn' : 'danger';
+  }
+  return 'neutral';
+}
+
+function IndicatorCard({ title, value, classification, inverted = false }: { title: string; value: any; classification: any; inverted?: boolean }) {
+  const numeric = hasNumber(Number(value)) ? Math.round(Number(value)) : null;
+  const tone = indicatorTone(value, classification, inverted);
+  return <div className={`indicatorCard ${tone}`}>
+    <strong>{title}</strong>
+    <b>{numeric !== null ? <><span>{numeric}</span><em>/100</em></> : '—'}</b>
+    <small>{classification || 'Sem dados'}</small>
+  </div>;
+}
+
 function TeacherAlerts(){
   const [alerts,setAlerts]=useState<AlertItem[]>([]);
   const [students,setStudents]=useState<DashboardStudent[]>([]);
@@ -1270,9 +1656,16 @@ function TeacherAlerts(){
   async function loadAlerts(){
     setLoading(true); setError('');
     try {
-      const summary = await loadTeacherDashboardSummary();
+      const [summary, officialAlertsRes] = await Promise.all([loadTeacherDashboardSummary(), api.get('/teacher/alerts')]);
       setStudents(summary.students);
-      setAlerts(collectTeacherAlerts(summary.students, summary.backendAlerts));
+      const officialAlerts = normalizeArray<AlertItem>(officialAlertsRes.data?.alerts || []).map(alert => ({
+        ...alert,
+        description: alert.description || alert.message || 'Alerta sem descrição.',
+        action: alert.action || alert.recommendedAction,
+        date: alert.date || alert.createdAt,
+        source: 'backend' as const,
+      }));
+      setAlerts(officialAlerts);
     } catch (summaryError) {
       setStudents([]);
       setAlerts([]);
@@ -1294,26 +1687,49 @@ function TeacherAlerts(){
     return { ...group, alerts: sortedAlerts, firstPriority: alertPriority(sortedAlerts[0]) };
   }).sort((a,b)=>a.firstPriority-b.firstPriority || a.studentName.localeCompare(b.studentName));
   const criticalCount = alerts.filter(alert => alertPriority(alert) === 0).length;
+  const moderateCount = alerts.filter(alert => [1,2].includes(alertPriority(alert))).length;
+  const lowCount = alerts.filter(alert => alertPriority(alert) >= 3).length;
+  const noRegisterCount = alerts.filter(alert => normalizeText(`${alert.type || ''} ${alert.description || ''}`).includes('sem registrar') || normalizeText(`${alert.type || ''} ${alert.description || ''}`).includes('sem registro')).length;
+  const totalAlerts = alerts.length;
+  const safeTotalAlerts = Math.max(totalAlerts, 1);
+  const criticalDeg = (criticalCount / safeTotalAlerts) * 360;
+  const moderateDeg = (moderateCount / safeTotalAlerts) * 360;
+  const lowDeg = (lowCount / safeTotalAlerts) * 360;
 
   return <Shell title="Alertas" eyebrow="ALERTAS" subtitle="Problemas agrupados por aluno e ordenados pela maior prioridade." backTo="/professor" nav={<TeacherNav/>}>
-    <section className="card teacherControlPanel"><div className="sectionHeader"><div><h3>Alertas dos alunos</h3><p>Aluno → problemas → ação recomendada. Lista oficial calculada pelo backend.</p></div><button className="secondary" onClick={loadAlerts}>Atualizar</button></div></section>
     {error && <div className="error premiumError">{error}<button type="button" className="secondary smallInline" onClick={loadAlerts}>Tentar novamente</button></div>}
     {loading ? <LoadingCard/> : <>
-      <section className="kpiGrid"><Kpi title="Alunos com alerta" value={groupedAlerts.length} /><Kpi title="Total de alertas" value={alerts.length} /><Kpi title="Críticos" value={criticalCount} tone={criticalCount ? 'danger' : 'good'} /><Kpi title="Base analisada" value={students.length} /></section>
-      <section className="alertStudentGrid">{groupedAlerts.map(group => {
+      <section className="alertSummaryLayout">
+        <div className="alertPriorityCards">
+          <article className="alertPriorityCard danger"><span>!</span><div><small>Críticos</small><strong>{criticalCount}</strong><p>Requerem ação imediata</p></div></article>
+          <article className="alertPriorityCard warn"><span>!</span><div><small>Moderados</small><strong>{moderateCount}</strong><p>Atenção necessária</p></div></article>
+          <article className="alertPriorityCard info"><span>↓</span><div><small>Baixa prioridade</small><strong>{lowCount}</strong><p>Pode ser monitorado</p></div></article>
+          <article className="alertPriorityCard neutral"><span>✓</span><div><small>Sem registrar</small><strong>{noRegisterCount}</strong><p>Sem alertas</p></div></article>
+        </div>
+        <aside className="alertDonutPanel">
+          <h3>Resumo por prioridade</h3>
+          <div className="alertDonutChart" style={{'--critical': `${criticalDeg}deg`, '--moderate': `${criticalDeg + moderateDeg}deg`, '--low': `${criticalDeg + moderateDeg + lowDeg}deg`} as React.CSSProperties}><strong>{totalAlerts}</strong><small>Total de alertas</small></div>
+          <div className="alertLegend"><span><i className="danger"/>Críticos <b>{criticalCount} ({totalAlerts ? Math.round((criticalCount/totalAlerts)*100) : 0}%)</b></span><span><i className="warn"/>Moderados <b>{moderateCount} ({totalAlerts ? Math.round((moderateCount/totalAlerts)*100) : 0}%)</b></span><span><i className="info"/>Baixa prioridade <b>{lowCount} ({totalAlerts ? Math.round((lowCount/totalAlerts)*100) : 0}%)</b></span><span><i/>Sem registrar <b>{noRegisterCount} ({totalAlerts ? Math.round((noRegisterCount/totalAlerts)*100) : 0}%)</b></span></div>
+          <button className="secondary" onClick={loadAlerts}>↟ Atualizar relatório</button>
+        </aside>
+      </section>
+      <section className="alertStudentGrid premiumAlertList">{groupedAlerts.map(group => {
         const student = group.student;
         const displayName = student?.name || group.studentName;
-        return <article className="alertStudentCard" key={`${displayName}-${group.alerts.length}`}>
-          <div className="alertStudentHeader">
+        const firstAlert = group.alerts[0];
+        const recommendation = firstAlert?.action || firstAlert?.recommendedAction || (group.firstPriority <= 1 ? 'Entrar em contato e revisar carga/rotina ainda hoje.' : group.firstPriority === 2 ? 'Reforçar a importância do registro diário, sem aumentar cobrança desnecessária.' : 'Acompanhar evolução nos próximos dias e revisar rotina de sono e carga.');
+        return <article className="alertStudentCard premiumAlertCard" key={`${displayName}-${group.alerts.length}`}>
+          <div className="alertStudentHeader premiumAlertHeader">
             <StudentAvatar student={student || { name: displayName }} size="md" />
             <div><h3>{displayName}</h3><p>{group.alerts.length} alerta(s) ativo(s)</p></div>
             <b className={riskClass(alertPriorityLabel(group.firstPriority))}>{alertPriorityLabel(group.firstPriority)}</b>
+            <small>Última atualização: {firstAlert?.date ? brDateTime(firstAlert.date) : '—'}</small>
           </div>
-          <div className="alertList">{group.alerts.map(alert => <div className="alertItem" key={alert.id}>
-            <div><strong>{alert.type || alert.status || 'Alerta'}</strong><small>{alert.description}</small>{alert.action && <em>{alert.action}</em>}</div>
-            <b className={riskClass(alert.level || alert.severity || alert.status)}>{alert.level || severityToLevel(alert.severity) || alert.status}</b>
-          </div>)}</div>
-          {student?.id && <button className="secondary" onClick={()=>openStudent(student.id)}>Abrir ficha do aluno</button>}
+          <div className="alertQuadrants">
+            <section><span className="eyebrow">Alertas ativos</span><div className="alertList">{group.alerts.map(alert => <div className="alertItem" key={alert.id}><i className={riskClass(alert.level || alert.severity || alert.status)}></i><div><strong>{alert.title || alert.type || translateAlertLabel(alert.status) || 'Alerta'}</strong><small>{alert.description || alert.message}</small></div><b className={riskClass(alert.level || alert.severity || alert.status)}>{alertDisplayLevel(alert)}</b></div>)}</div><button className="ghost dashed">＋ Ver histórico de alertas</button></section>
+            <section><span className="eyebrow">Ação recomendada</span><div className="actionRecommendation"><span>◎</span><p>{recommendation}</p></div><button className="secondary">▤ Ver orientações</button></section>
+            <section><span className="eyebrow">Ações rápidas</span><div className="quickAlertActions"><button className="secondary" type="button" disabled={!student?.id} onClick={()=>student?.id && openStudent(student.id)}>♙ Abrir ficha do aluno ›</button><button className="ghost" type="button" onClick={()=>quickMessageStudent(student, displayName)}>☏ Enviar mensagem ›</button><button className="ghost" type="button" onClick={()=>saveAlertObservation(student, displayName)}>▧ Adicionar observação ›</button></div></section>
+          </div>
         </article>;
       })}{!groupedAlerts.length && <Empty text="Nenhum alerta ativo."/>}</section>
     </>}
@@ -1472,9 +1888,12 @@ function StudentDetailModal({ studentId, onClose }: { studentId: number | string
     if(!id) return;
     setLoading(true); setError('');
     try {
-      const [detailRes, recordsRes] = await Promise.all([api.get(`/students/${id}`), api.get(`/teacher/students/${id}/sleep-records`)]);
-      const fullRecords = normalizeArray<SleepRecord>(recordsRes.data);
-      setD({ ...detailRes.data, allRecords: fullRecords, recentRecords: fullRecords });
+      const [detailRes, recordsRes, insightsRes] = await Promise.allSettled([api.get(`/students/${id}`), api.get(`/teacher/students/${id}/sleep-records`), api.get(`/teacher/students/${id}/insights`)]);
+      if (detailRes.status === 'rejected') throw detailRes.reason;
+      if (recordsRes.status === 'rejected') throw recordsRes.reason;
+      const fullRecords = normalizeArray<SleepRecord>(recordsRes.value.data);
+      const profileInsights = insightsRes.status === 'fulfilled' ? insightsRes.value.data : detailRes.value.data?.profileInsights;
+      setD({ ...detailRes.value.data, allRecords: fullRecords, recentRecords: fullRecords, profileInsights });
     }
     catch(err){ setError(messageFromError(err)); }
     finally{ setLoading(false); }
@@ -1499,8 +1918,9 @@ function StudentDetailModal({ studentId, onClose }: { studentId: number | string
     <section className="modalCard studentDetailModal">
       {selectedRecord && <SleepRecordSummaryModal record={selectedRecord} onClose={()=>setSelectedRecord(null)}/>} 
       <div className="sectionHeader detailModalHeader"><div><span className="eyebrow">Ficha integrada do aluno</span><h3>{d.name}</h3><p>A ficha fica dentro da página /professor/alunos, sem página visual separada.</p></div><button className="ghost small" onClick={onClose}>Fechar</button></div>
-      <section className="heroCard"><div><span className="eyebrow">Ficha completa do aluno</span><h2 className={levelClass(d.weeklyAverage ?? last?.scoreTotal)}>{d.risk || levelFromScore(d.weeklyAverage ?? last?.scoreTotal)}</h2><p>{d.recommendation || 'Acompanhe histórico, tendência, meta e observações do aluno em uma única área.'}</p></div><div className="stackActions"><div className="ring" style={{'--value': `${Number(d.weeklyAverage ?? last?.scoreTotal ?? 0) * 3.6}deg`} as React.CSSProperties}><strong>{score(d.weeklyAverage ?? last?.scoreTotal)}</strong><small>Média/score</small></div><button className="secondary" onClick={loadStudent}>Atualizar dados</button></div></section>
-      <section className="kpiGrid"><Kpi title="Média semanal" value={hasNumber(d.weeklyAverage) ? `${score(d.weeklyAverage)}/100` : '—'} tone={levelClass(d.weeklyAverage)} /><Kpi title="Média mensal" value={hasNumber(d.monthlyAverage) ? `${score(d.monthlyAverage)}/100` : '—'} tone={levelClass(d.monthlyAverage)} /><Kpi title="Adesão" value={d.adherence !== undefined ? pct(d.adherence) : '—'} /><Kpi title="Último registro" value={last ? score(last.scoreTotal) : '—'} tone={levelClass(last?.scoreTotal)} /></section>
+      <section className="heroCard studentProfileHero"><StudentAvatar student={d} size="lg"/><div className="studentProfileHeroCenter"><span className="eyebrow">Ficha completa do aluno</span><h2 className={levelClass(d.weeklyAverage ?? last?.scoreTotal)}>{d.risk || levelFromScore(d.weeklyAverage ?? last?.scoreTotal)}</h2><p>{d.recommendation || 'Acompanhe histórico, tendência, meta e observações do aluno em uma única área.'}</p></div><div className="stackActions"><div className="ring" style={{'--value': `${Number(d.weeklyAverage ?? last?.scoreTotal ?? 0) * 3.6}deg`} as React.CSSProperties}><strong>{score(d.weeklyAverage ?? last?.scoreTotal)}</strong><small><span>Score</span><span>médio</span></small></div><button className="secondary" onClick={loadStudent}>Atualizar dados</button></div></section>
+      <section className="kpiGrid studentProfileKpis"><Kpi title="Média semanal de recuperação" value={hasNumber(d.weeklyAverage) ? `${score(d.weeklyAverage)}/100` : '—'} tone={levelClass(d.weeklyAverage)} hint="Média dos registros dos últimos 7 dias."/><Kpi title="Média mensal de recuperação" value={hasNumber(d.monthlyAverage) ? `${score(d.monthlyAverage)}/100` : '—'} tone={levelClass(d.monthlyAverage)} hint="Média dos registros dos últimos 30 dias."/><Kpi title="Adesão aos registros" value={d.adherence !== undefined ? pct(d.adherence) : '—'} hint="Frequência de uso do app pelo aluno."/><Kpi title="Último score registrado" value={last ? `${score(last.scoreTotal)}/100` : '—'} tone={levelClass(last?.scoreTotal)} hint="Score do registro de sono mais recente."/></section>
+      <section className="card"><div className="sectionHeader"><div><h3>Ficha inteligente do aluno</h3><p>Resumo dos 16 blocos oficiais com risco, tendências, pontos fortes, pontos de atenção e conduta prática.</p></div></div><div className="profileInsightGrid">{normalizeArray<any>(d.profileInsights?.blocks || []).map((block:any)=>renderProfileBlock(block, records, normalizeArray<any>(d.observations)))}{!normalizeArray<any>(d.profileInsights?.blocks || []).length && <Empty text="Ficha inteligente ainda indisponível para este aluno."/>}</div>{d.profileInsights?.insufficientDataMessage && <p className="muted">{d.profileInsights.insufficientDataMessage}</p>}</section>
       <TeacherGoalManager studentId={id}/>
       <section className="grid2"><section className="card"><h3>Evolução recente</h3><p className="muted">Ordem cronológica: registros mais recentes à direita no gráfico.</p><MiniBars data={records.slice(0,14)} field="scoreTotal" /></section><section className="card"><h3>Leitura técnica rápida</h3><p>{recommendationFromRecord(last)}</p><div className="scoreTable compact"><div><strong>Score</strong><b>{last ? score(last.scoreTotal) : '—'}</b><span>{last ? levelFromScore(last.scoreTotal) : 'Sem registro'}</span></div><div><strong>Horas</strong><b>{last ? hour(last.totalHours) : '—'}</b><span>Quantidade de sono informada</span></div><div><strong>Qualidade</strong><b>{last?.perceivedQuality ? `${last.perceivedQuality}/5` : '—'}</b><span>Percepção subjetiva da noite</span></div></div></section></section>
       <ScoreBreakdown record={last}/>
@@ -1508,43 +1928,13 @@ function StudentDetailModal({ studentId, onClose }: { studentId: number | string
       <section className="card">
         <h3>Leitura de recuperação e treino</h3>
         <p className="muted">Indicadores calculados a partir das últimas noites para orientar decisão de treino e recuperação.</p>
-        <div className="scoreTable compact">
-          {/* Prontidão para treino */}
-          <div>
-            <strong>Prontidão</strong>
-            <b>{hasNumber((d as any).readinessScore) ? `${Math.round(Number((d as any).readinessScore))}/100` : '—'}</b>
-            <span>{(d as any).readinessClassification || '—'}</span>
-          </div>
-          {/* Risco de sobrecarga */}
-          <div>
-            <strong>Risco de sobrecarga</strong>
-            <b>{hasNumber((d as any).overloadRisk?.value) ? `${Math.round(Number((d as any).overloadRisk.value))}/100` : '—'}</b>
-            <span>{(d as any).overloadRisk?.classification || '—'}</span>
-          </div>
-          {/* Recuperação corporal */}
-          <div>
-            <strong>Recuperação corporal</strong>
-            <b>{hasNumber((d as any).recovery?.value) ? `${Math.round(Number((d as any).recovery.value))}/100` : '—'}</b>
-            <span>{(d as any).recovery?.classification || '—'}</span>
-          </div>
-          {/* Fadiga geral */}
-          <div>
-            <strong>Fadiga geral</strong>
-            <b>{hasNumber((d as any).fatigue?.value) ? `${Math.round(Number((d as any).fatigue.value))}/100` : '—'}</b>
-            <span>{(d as any).fatigue?.classification || '—'}</span>
-          </div>
-          {/* Estado de alerta */}
-          <div>
-            <strong>Estado de alerta</strong>
-            <b>{hasNumber((d as any).alertness?.value) ? `${Math.round(Number((d as any).alertness.value))}/100` : '—'}</b>
-            <span>{(d as any).alertness?.classification || '—'}</span>
-          </div>
-          {/* Foco mental */}
-          <div>
-            <strong>Foco mental</strong>
-            <b>{hasNumber((d as any).mentalFocus?.value) ? `${Math.round(Number((d as any).mentalFocus.value))}/100` : '—'}</b>
-            <span>{(d as any).mentalFocus?.classification || '—'}</span>
-          </div>
+        <div className="scoreTable compact recoveryTrainingGrid">
+          <IndicatorCard title="Prontidão" value={(d as any).readinessScore} classification={(d as any).readinessClassification} />
+          <IndicatorCard title="Risco de sobrecarga" value={(d as any).overloadRisk?.value} classification={(d as any).overloadRisk?.classification} inverted />
+          <IndicatorCard title="Recuperação corporal" value={(d as any).recovery?.value} classification={(d as any).recovery?.classification} />
+          <IndicatorCard title="Fadiga geral" value={(d as any).fatigue?.value} classification={(d as any).fatigue?.classification} inverted />
+          <IndicatorCard title="Estado de alerta" value={(d as any).alertness?.value} classification={(d as any).alertness?.classification} />
+          <IndicatorCard title="Foco mental" value={(d as any).mentalFocus?.value} classification={(d as any).mentalFocus?.classification} />
         </div>
       </section>
       <section className="card"><div className="sectionHeader"><div><h3>Histórico do aluno</h3><p>Histórico oficial dentro da ficha do aluno. Clique em uma noite para abrir o detalhe completo sem sair da ficha.</p></div><input className="search" placeholder="Buscar no histórico" value={historySearch} onChange={e=>setHistorySearch(e.target.value)}/></div><div className="filterBar"><button className={historyFilter==='7'?'active':''} onClick={()=>setHistoryFilter('7')}>7 dias</button><button className={historyFilter==='30'?'active':''} onClick={()=>setHistoryFilter('30')}>30 dias</button><button className={historyFilter==='all'?'active':''} onClick={()=>setHistoryFilter('all')}>Todos carregados</button><button className="secondary" onClick={loadStudent}>Atualizar histórico</button></div><div className="historyList">{filteredRecords.map((r:SleepRecord)=><button className="historyItem clickable" key={r.id} onClick={()=>setSelectedRecord(r)}><div><strong>{brDate(r.date)}</strong><small>{hour(r.totalHours)} • qualidade {r.perceivedQuality}/5 • energia {r.energy ?? '—'}/5 • dor {r.generalPain ?? '—'}/5 • {r.awakenings} despertar(es) • {r.classification}</small>{r.notes && <em>{r.notes}</em>}</div><b className={levelClass(r.scoreTotal)}>{score(r.scoreTotal)}</b></button>)}{!filteredRecords.length && <Empty text="Nenhum registro encontrado para esse filtro."/>}</div></section>
