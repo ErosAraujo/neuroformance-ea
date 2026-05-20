@@ -1,10 +1,13 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Platform, TextInput, StyleSheet, Alert } from 'react-native';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import api, { getApiErrorMessage } from '../services/api';
 import { colors, shared } from '../theme';
+import { getStudentPhotoSource, initialsFromStudentName } from '../utils/studentPhotos';
 
 function getNotificationPermission() {
   if (Platform.OS !== 'web' || typeof Notification === 'undefined') return 'indisponível';
@@ -45,7 +48,7 @@ async function registerWebNotification(reminderTime: string) {
   if (permission !== 'granted') throw new Error('Permissão de notificação não foi concedida.');
   const registration = await navigator.serviceWorker.register('/sw.js');
   const { data } = await api.get('/push/public-key');
-  if (!data?.publicKey) throw new Error('Chave pública VAPID não configurada no backend.');
+  if (!data?.publicKey) throw new Error('Configuração de lembretes indisponível no momento.');
   const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(data.publicKey) });
   await api.post('/push/subscribe', { ...subscription.toJSON(), userAgent: navigator.userAgent });
   await api.patch('/push/settings', { reminderEnabled: true, reminderTime, timezone: 'America/Sao_Paulo' });
@@ -94,62 +97,408 @@ export default function ProfileScreen() {
     }
   };
 
+  const avatarSource = useMemo<ImageSourcePropType | null>(() => getStudentPhotoSource(user), [user]);
+  const avatarInitials = useMemo(() => initialsFromStudentName(user?.name) || 'EA', [user?.name]);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarSource]);
+
   return (
     <SafeAreaView style={shared.screen} edges={['left', 'right']}>
-      <ScrollView style={shared.screen} contentContainerStyle={shared.content}>
-        <Text style={shared.title}>Perfil</Text>
-        <Text style={shared.subtitle}>Dados básicos, metas e configurações do aluno.</Text>
+      <ScrollView style={shared.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
+
+        <View style={styles.headerAccent} />
+        <Text style={styles.title}>Perfil</Text>
+        <Text style={styles.subtitle}>Dados básicos e configurações do aluno.</Text>
+
         {user && (
-          <View style={shared.card}>
-            <Info label="Nome" value={user.name} />
-            <Info label="E-mail" value={user.email} />
-            <Info label="Perfil" value={user.profile === 'student' ? 'Aluno' : 'Professor'} />
+          <View style={styles.profileHero}>
+            <View style={styles.avatarOuter}>
+              <View style={styles.avatarCircle}>
+                {avatarSource && !avatarFailed ? (
+                  <Image
+                    source={avatarSource}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                    onError={() => setAvatarFailed(true)}
+                  />
+                ) : (
+                  <Text style={styles.avatarText}>{avatarInitials}</Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName} numberOfLines={1}>{user.name}</Text>
+              <Text style={styles.profileEmail} numberOfLines={1}>{user.email}</Text>
+              <View style={styles.roleChip}>
+                <Text style={styles.roleText}>{user.profile === 'student' ? 'Aluno' : 'Professor'}</Text>
+              </View>
+            </View>
           </View>
         )}
-        <View style={shared.card}>
-          <Text style={shared.cardTitle}>Lembrete de sono</Text>
-          <Text style={shared.muted}>Notificações funcionam no PWA/web compatível. No app nativo, esse fluxo depende de push nativo, que ainda não está implementado aqui.</Text>
-          <Text style={shared.label}>Horário do lembrete</Text>
-          <TextInput
-            style={shared.input}
-            value={reminderTime}
-            onChangeText={(value) => setReminderTime(formatClockInput(value))}
-            onBlur={() => setReminderTime(normalizeClockOnBlur(reminderTime))}
-            placeholder="0800"
-            placeholderTextColor={colors.muted}
-            keyboardType="numeric"
-            maxLength={5}
-          />
-          <Text style={styles.hint}>Digite só números. Exemplo: 2130 vira 21:30.</Text>
-          <Text style={styles.status}>Permissão: {notificationStatus}</Text>
-          <Text style={styles.status}>Fuso horário: America/Sao_Paulo</Text>
-          <Pressable style={[shared.button, savingReminder && styles.disabled]} onPress={activateReminder} disabled={savingReminder}><Text style={shared.buttonText}>{savingReminder ? 'Salvando...' : 'Ativar lembrete'}</Text></Pressable>
-          <Pressable style={shared.outlineButton} onPress={disableReminder} disabled={savingReminder}><Text style={shared.outlineText}>Desativar lembrete</Text></Pressable>
+
+        <View style={styles.reminderCard}>
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.iconHalo}>
+              <MaterialCommunityIcons name="bell-sleep-outline" size={28} color={colors.primary} />
+            </View>
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Lembrete de sono</Text>
+              <Text style={styles.reminderIntro}>Escolha o horário para receber o lembrete de registrar a noite anterior.</Text>
+            </View>
+          </View>
+
+          <View style={styles.timeBox}>
+            <Text style={styles.inputLabel}>Horário do lembrete</Text>
+            <View style={styles.timeInputShell}>
+              <MaterialCommunityIcons name="clock-outline" size={24} color={colors.primary} />
+              <TextInput
+                style={styles.timeInput}
+                value={reminderTime}
+                onChangeText={(value) => setReminderTime(formatClockInput(value))}
+                onBlur={() => setReminderTime(normalizeClockOnBlur(reminderTime))}
+                placeholder="0800"
+                placeholderTextColor={colors.subtle}
+                keyboardType="numeric"
+                maxLength={5}
+              />
+              <MaterialCommunityIcons name="calendar-clock" size={25} color={colors.primary} />
+            </View>
+            <View style={styles.hintRow}>
+              <MaterialCommunityIcons name="information-outline" size={16} color={colors.subtle} />
+              <Text style={styles.hint}>Digite só números. Exemplo: 2130 vira 21:30.</Text>
+            </View>
+          </View>
+
+          <View style={styles.statusGrid}>
+            <View style={styles.statusPill}>
+              <MaterialCommunityIcons name="shield-check-outline" size={30} color={colors.primary} />
+              <View>
+                <Text style={styles.statusLabel}>Permissão</Text>
+                <Text style={styles.statusValue}>{notificationStatus}</Text>
+              </View>
+            </View>
+            <View style={styles.statusPill}>
+              <MaterialCommunityIcons name="earth" size={30} color={colors.primary} />
+              <View style={styles.statusTextWrap}>
+                <Text style={styles.statusLabel}>Fuso</Text>
+                <Text style={styles.statusValue} numberOfLines={1}>America/Sao_Paulo</Text>
+              </View>
+            </View>
+          </View>
+
+          <Pressable style={[styles.primaryButton, savingReminder && styles.disabled]} onPress={activateReminder} disabled={savingReminder}>
+            <MaterialCommunityIcons name="lightning-bolt" size={24} color={colors.white} />
+            <Text style={styles.primaryButtonText}>{savingReminder ? 'Salvando...' : 'Ativar lembrete'}</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton} onPress={disableReminder} disabled={savingReminder}>
+            <MaterialCommunityIcons name="bell-off-outline" size={23} color={colors.primary} />
+            <Text style={styles.secondaryButtonText}>Desativar lembrete</Text>
+          </Pressable>
+
           {notificationStatus === 'negado' && <Text style={styles.warning}>Permissão negada. Ative manualmente as notificações nas configurações do navegador.</Text>}
         </View>
-        <Pressable style={shared.button} onPress={() => navigation.navigate('MetasSono')}><Text style={shared.buttonText}>Metas de sono</Text></Pressable>
-        <Pressable style={shared.outlineButton} onPress={() => navigation.navigate('Insights')}><Text style={shared.outlineText}>Insights</Text></Pressable>
-        <Pressable style={shared.outlineButton} onPress={logout}><Text style={shared.outlineText}>Sair</Text></Pressable>
+
+        <View style={styles.teacherGoalsNotice}>
+          <View style={styles.noticeIcon}>
+            <MaterialCommunityIcons name="lock-outline" size={24} color={colors.primary} />
+          </View>
+          <View style={styles.noticeTextWrap}>
+            <Text style={styles.noticeTitle}>Metas de sono</Text>
+            <Text style={styles.noticeText}>As metas são definidas pelo professor e aparecem nas áreas de acompanhamento.</Text>
+          </View>
+        </View>
+
+        <View style={styles.actionsCard}>
+          <Pressable style={styles.actionRow} onPress={() => navigation.navigate('Insights')}>
+            <View style={styles.actionIcon}>
+              <MaterialCommunityIcons name="chart-line" size={24} color={colors.primary} />
+            </View>
+            <View style={styles.actionTextWrap}>
+              <Text style={styles.actionTitle}>Insights</Text>
+              <Text style={styles.actionSubtitle}>Análises do seu acompanhamento.</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={28} color={colors.subtle} />
+          </Pressable>
+
+          <Pressable style={styles.logoutButton} onPress={logout}>
+            <MaterialCommunityIcons name="logout" size={22} color={colors.text} />
+            <Text style={styles.logoutText}>Sair</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 9 },
-  infoLabel: { color: colors.muted, flex: 1, lineHeight: 19 },
-  infoValue: { color: colors.text, fontWeight: '900', textAlign: 'right', flex: 1, lineHeight: 19 },
-  status: { color: colors.text, fontWeight: '800', marginBottom: 10 },
-  hint: { color: colors.subtle, fontSize: 12, lineHeight: 18, marginTop: -6, marginBottom: 10 },
-  warning: { color: colors.warning, marginTop: 8, lineHeight: 18 },
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 24,
+    paddingBottom: 116,
+    backgroundColor: colors.background,
+  },
+  glowOne: {
+    position: 'absolute',
+    top: -82,
+    right: -92,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(139,92,246,0.16)',
+  },
+  glowTwo: {
+    position: 'absolute',
+    top: 92,
+    left: -120,
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    backgroundColor: 'rgba(56,189,248,0.08)',
+  },
+  headerAccent: {
+    width: 2,
+    height: 34,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+  },
+  title: {
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: '900',
+    marginBottom: 6,
+    letterSpacing: -0.8,
+  },
+  subtitle: {
+    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  profileHero: {
+    backgroundColor: 'rgba(139,92,246,0.16)',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 26,
+    padding: 18,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 28,
+    elevation: 4,
+  },
+  avatarOuter: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(139,92,246,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.66)',
+  },
+  avatarCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.055)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarText: { color: colors.text, fontSize: 30, fontWeight: '900' },
+  profileInfo: { flex: 1, minWidth: 0 },
+  profileName: { color: colors.text, fontSize: 24, fontWeight: '900', marginBottom: 5, letterSpacing: -0.4 },
+  profileEmail: { color: colors.muted, fontSize: 14, lineHeight: 19, marginBottom: 10 },
+  roleChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.primarySoft,
+  },
+  roleText: { color: colors.primary, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.7 },
+  reminderCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 26,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.28,
+    shadowRadius: 26,
+    elevation: 4,
+  },
+  cardHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
+  iconHalo: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+  },
+  cardHeaderText: { flex: 1, minWidth: 0 },
+  cardTitle: { color: colors.text, fontSize: 21, fontWeight: '900', marginBottom: 6, letterSpacing: -0.2 },
+  reminderIntro: { color: colors.muted, fontSize: 14, lineHeight: 21 },
+  timeBox: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 22,
+    padding: 14,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+  },
+  inputLabel: { color: colors.muted, fontSize: 14, fontWeight: '900', marginBottom: 9 },
+  timeInputShell: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+  },
+  timeInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '900',
+    paddingVertical: 4,
+  },
+  hintRow: { flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 10 },
+  hint: { color: colors.subtle, fontSize: 12, lineHeight: 18, flex: 1 },
+  statusGrid: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  statusPill: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 12,
+    minHeight: 76,
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusTextWrap: { flex: 1, minWidth: 0 },
+  statusLabel: { color: colors.muted, fontSize: 13, marginBottom: 3 },
+  statusValue: { color: colors.text, fontSize: 14, fontWeight: '900' },
+  primaryButton: {
+    minHeight: 58,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.36,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  primaryButtonText: { color: colors.white, fontSize: 16, fontWeight: '900' },
+  secondaryButton: {
+    minHeight: 54,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  secondaryButtonText: { color: colors.text, fontSize: 15, fontWeight: '900' },
+  teacherGoalsNotice: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 22,
+    padding: 14,
+    marginBottom: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  noticeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+  },
+  noticeTextWrap: { flex: 1, minWidth: 0 },
+  noticeTitle: { color: colors.text, fontSize: 16, fontWeight: '900', marginBottom: 4 },
+  noticeText: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+  actionsCard: { marginBottom: 10 },
+  actionRow: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 22,
+    padding: 14,
+    marginBottom: 12,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  actionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+  },
+  actionTextWrap: { flex: 1, minWidth: 0 },
+  actionTitle: { color: colors.text, fontSize: 17, fontWeight: '900', marginBottom: 3 },
+  actionSubtitle: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+  logoutButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 15,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+  },
+  logoutText: { color: colors.text, fontSize: 15, fontWeight: '900' },
+  warning: { color: colors.warning, marginTop: 10, lineHeight: 18 },
   disabled: { opacity: 0.6 },
 });

@@ -42,7 +42,7 @@ function resolveApiUrl(value?: string) {
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
 export const API_CONFIG_ERROR = !configuredApiUrl
-  ? 'EXPO_PUBLIC_API_URL não foi configurada. Crie mobile-app/.env e informe a URL da API com /api no final. PC local: http://localhost:3000/api. Celular físico: http://IP_DO_PC:3000/api. Produção: https://seu-backend/api.'
+  ? 'EXPO_PUBLIC_API_URL não foi configurada. Crie mobile-app/.env e informe a URL do servidor com /api no final. PC local: http://localhost:3000/api. Celular físico: http://IP_DO_PC:3000/api. Produção: https://seu-servidor/api.'
   : null;
 
 const API_URL = resolveApiUrl(configuredApiUrl);
@@ -51,7 +51,7 @@ const IS_LOCALHOST_API = /https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/
 if (typeof __DEV__ !== 'undefined' && __DEV__) {
   if (IS_LOCALHOST_API) {
     const localHint = Platform.OS === 'web'
-      ? 'No navegador do PC, localhost funciona se o backend estiver no mesmo computador. No celular, abra o app pelo IP do PC ou configure EXPO_PUBLIC_API_URL com esse IP.'
+      ? 'No navegador do PC, localhost funciona se o servidor estiver no mesmo computador. No celular, abra o app pelo IP do PC ou configure EXPO_PUBLIC_API_URL com esse IP.'
       : 'Em celular físico, localhost aponta para o próprio celular. Use o IP do computador na rede.';
     console.warn(`[API] URL configurada com host local: ${API_URL}. ${localHint}`);
   } else if (API_URL) {
@@ -79,13 +79,13 @@ export function getApiErrorMessage(error: unknown, fallback = 'Não foi possíve
     const axiosError = error as AxiosError<any>;
     const apiMessage = axiosError.response?.data?.message || axiosError.response?.data?.error;
     if (typeof apiMessage === 'string' && apiMessage.trim()) return apiMessage.trim();
-    if (axiosError.code === 'ECONNABORTED') return 'A API demorou demais para responder. Verifique se o backend está rodando e tente novamente.';
+    if (axiosError.code === 'ECONNABORTED') return 'O servidor demorou demais para responder. Verifique a conexão e tente novamente.';
     if (!axiosError.response) {
       const localHint = IS_LOCALHOST_API
         ? ' Se estiver no celular, troque localhost pelo IP do computador na rede.'
         : '';
       const webCorsHint = Platform.OS === 'web'
-        ? ' Se o backend estiver vivo, confira se CORS_ORIGIN no backend permite a origem do app, por exemplo http://localhost:8081 ou http://IP_DO_PC:8081.'
+        ? ' Confira se a origem do app está liberada no servidor, por exemplo http://localhost:8081 ou http://IP_DO_PC:8081.'
         : '';
       return `Não foi possível conectar à API em ${getApiBaseUrl()}.${localHint}${webCorsHint}`;
     }

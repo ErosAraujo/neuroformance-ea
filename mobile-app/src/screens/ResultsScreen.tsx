@@ -1,10 +1,9 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { SleepRecord } from '../types';
+import { DailyIndicators, Insight, SleepRecord } from '../types';
 import { colors, scoreColor, shared } from '../theme';
-import { buildHistoricalIndicatorPoints } from '../utils/historicalIndicators';
 import { getStatusClassification, getStatusColor } from '../utils/indicatorMeaning';
 
 function strongestHelp(record: SleepRecord) {
@@ -39,9 +38,13 @@ const metricValue = (value?: number | null, inverted = false) => {
 export default function ResultsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const record: SleepRecord | undefined = route.params?.record;
+  const rawRecord = route.params?.record;
+  const envelope = rawRecord?.record ? rawRecord : null;
+  const record: SleepRecord | undefined = envelope?.record || rawRecord;
+  const postRecordInsights: Insight[] = route.params?.postRecordInsights || envelope?.postRecordInsights || [];
+  const indicators: DailyIndicators | undefined = route.params?.indicators || envelope?.indicators;
 
-  const point = useMemo(() => record ? buildHistoricalIndicatorPoints([record]).slice(-1)[0] : null, [record]);
+  const officialStatusScore = indicators?.generalStatusScore ?? null;
 
   if (!record) {
     return (
@@ -55,26 +58,40 @@ export default function ResultsScreen() {
   }
 
   const pillColor = scoreColor(record.classification);
-  const statusClassification = getStatusClassification(point?.statusGeneral ?? null);
+  const statusClassification = indicators?.generalStatusClassification || getStatusClassification(officialStatusScore);
   const statusColor = getStatusColor(statusClassification);
 
   return (
     <SafeAreaView style={shared.screen} edges={['left', 'right']}>
       <ScrollView style={shared.screen} contentContainerStyle={shared.content}>
         <Text style={shared.title}>Resultado da noite</Text>
-        <Text style={shared.subtitle}>Score calculado pelo backend. Os indicadores da Home são recalculados com base nas últimas noites registradas.</Text>
+        <Text style={shared.subtitle}>Resumo calculado com base na noite registrada e no seu histórico recente.</Text>
         <View style={[shared.card, styles.hero]}>
           <Text style={[styles.score, { color: pillColor }]}>{record.scoreTotal}</Text>
           <Text style={[styles.classification, { color: pillColor }]}>{record.classification}</Text>
           <Text style={shared.muted}>{Number(record.totalHours).toFixed(1)}h dormidas</Text>
         </View>
 
-        {point?.statusGeneral !== null && point?.statusGeneral !== undefined && (
+        {!!postRecordInsights.length && (
           <View style={shared.card}>
-            <Text style={shared.cardTitle}>Status geral estimado neste registro</Text>
-            <Text style={[styles.statusGeneral, { color: statusColor }]}>{Math.round(point.statusGeneral)}%</Text>
+            <Text style={shared.cardTitle}>Insights após o registro</Text>
+            <Text style={shared.muted}>Leitura prática gerada com base no registro salvo e no seu histórico real.</Text>
+            {postRecordInsights.slice(0, 5).map((item) => (
+              <View key={item.id} style={[styles.insightCard, styles[severityStyle(item.severity)]]}>
+                <Text style={styles.insightTitle}>{item.title}</Text>
+                <Text style={styles.insightMessage}>{item.message || item.description}</Text>
+                {!!item.recommendedAction && <Text style={styles.insightAction}>Ação: {item.recommendedAction}</Text>}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {officialStatusScore !== null && officialStatusScore !== undefined && (
+          <View style={shared.card}>
+            <Text style={shared.cardTitle}>Status geral oficial neste registro</Text>
+            <Text style={[styles.statusGeneral, { color: statusColor }]}>{Math.round(officialStatusScore)}%</Text>
             <Text style={[styles.classification, { color: statusColor }]}>{statusClassification || 'Em cálculo'}</Text>
-            <Text style={shared.muted}>Este valor é uma leitura do registro salvo. A Home usa a base mais recente disponível na API.</Text>
+            <Text style={shared.muted}>Leitura atual considerando seus registros recentes.</Text>
           </View>
         )}
 
@@ -98,15 +115,15 @@ export default function ResultsScreen() {
           <Info label="Dor ao acordar" value={yesNo(record.pain)} />
         </View>
 
-        {point && (
+        {indicators && (
           <View style={shared.card}>
-            <Text style={shared.cardTitle}>Indicadores estimados</Text>
-            <Info label="Prontidão para treino" value={metricValue(point.readiness)} />
-            <Info label="Recuperação corporal" value={metricValue(point.recovery)} />
-            <Info label="Fadiga geral" value={metricValue(point.fatigue, true)} />
-            <Info label="Estado de alerta" value={metricValue(point.alertness)} />
-            <Info label="Foco mental" value={metricValue(point.mentalFocus)} />
-            <Info label="Risco de sobrecarga" value={metricValue(point.overloadRisk, true)} />
+            <Text style={shared.cardTitle}>Indicadores da noite</Text>
+            <Info label="Prontidão para treino" value={metricValue(indicators.readinessScore)} />
+            <Info label="Recuperação corporal" value={metricValue(indicators.recovery?.value)} />
+            <Info label="Fadiga geral" value={metricValue(indicators.fatigue?.value, true)} />
+            <Info label="Estado de alerta" value={metricValue(indicators.alertness?.value)} />
+            <Info label="Foco mental" value={metricValue(indicators.mentalFocus?.value)} />
+            <Info label="Risco de sobrecarga" value={metricValue(indicators.overloadRisk?.value, true)} />
           </View>
         )}
 
@@ -124,6 +141,16 @@ export default function ResultsScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+
+function severityStyle(severity?: string) {
+  const value = String(severity || '').toLowerCase();
+  if (value.includes('critical')) return 'criticalInsight' as const;
+  if (value.includes('warning')) return 'warningInsight' as const;
+  if (value.includes('attention')) return 'attentionInsight' as const;
+  if (value.includes('positive')) return 'positiveInsight' as const;
+  return 'neutralInsight' as const;
 }
 
 function Info({ label, value }: { label: string; value: string }) {
@@ -152,6 +179,15 @@ const styles = StyleSheet.create({
   statusGeneral: { fontSize: 48, fontWeight: '900', lineHeight: 56 },
   help: { color: colors.success, fontWeight: '900', marginBottom: 8, lineHeight: 20 },
   problem: { color: colors.warning, fontWeight: '900', lineHeight: 20 },
+  insightCard: { marginTop: 12, borderWidth: 1, borderRadius: 16, padding: 12, backgroundColor: 'rgba(255,255,255,0.045)' },
+  insightTitle: { color: colors.text, fontWeight: '900', marginBottom: 6 },
+  insightMessage: { color: colors.muted, lineHeight: 19 },
+  insightAction: { color: colors.text, fontWeight: '800', marginTop: 8, lineHeight: 19 },
+  positiveInsight: { borderColor: colors.success },
+  neutralInsight: { borderColor: colors.border },
+  attentionInsight: { borderColor: colors.warning },
+  warningInsight: { borderColor: colors.warning },
+  criticalInsight: { borderColor: colors.danger },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 9 },
   infoLabel: { color: colors.muted, flex: 1, lineHeight: 19 },
   infoValue: { color: colors.text, fontWeight: '900', textAlign: 'right', flex: 1, lineHeight: 19 },

@@ -13,6 +13,12 @@ const metricValue = (value?: number | null, inverted = false) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 'Sem dados';
   return inverted ? `${value}/100, menor é melhor` : `${value}/100`;
 };
+const clockValue = (value?: string | null) => {
+  if (!value) return 'Não informado';
+  if (/^\d{2}:\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 'Não informado' : parsed.toISOString().slice(11, 16);
+};
 
 export default function SleepRecordDetailScreen() {
   const route = useRoute<any>();
@@ -41,7 +47,7 @@ export default function SleepRecordDetailScreen() {
 
   if (loading && !record) {
     return (
-      <SafeAreaView style={shared.screen} edges={['left', 'right']}>
+      <SafeAreaView style={shared.screen} edges={['top', 'left', 'right']}>
         <View style={[shared.screen, shared.content]}><Text style={shared.muted}>Carregando...</Text></View>
       </SafeAreaView>
     );
@@ -49,7 +55,7 @@ export default function SleepRecordDetailScreen() {
 
   if (loadError && !record) {
     return (
-      <SafeAreaView style={shared.screen} edges={['left', 'right']}>
+      <SafeAreaView style={shared.screen} edges={['top', 'left', 'right']}>
         <View style={[shared.screen, shared.content]}>
           <Text style={styles.errorTitle}>Falha ao carregar registro</Text>
           <Text style={shared.muted}>{loadError}</Text>
@@ -61,15 +67,15 @@ export default function SleepRecordDetailScreen() {
 
   if (!record) {
     return (
-      <SafeAreaView style={shared.screen} edges={['left', 'right']}>
+      <SafeAreaView style={shared.screen} edges={['top', 'left', 'right']}>
         <View style={[shared.screen, shared.content]}><Text style={shared.muted}>Registro não encontrado.</Text></View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={shared.screen} edges={['left', 'right']}>
-      <ScrollView style={shared.screen} contentContainerStyle={shared.content}>
+    <SafeAreaView style={shared.screen} edges={['top', 'left', 'right']}>
+      <ScrollView style={shared.screen} contentContainerStyle={styles.content}>
         <Text style={shared.title}>{String(record.date).slice(0, 10)}</Text>
         <Text style={shared.subtitle}>Detalhe completo da noite registrada e dos campos que alimentam os indicadores.</Text>
         {loadError && (
@@ -88,6 +94,9 @@ export default function SleepRecordDetailScreen() {
 
         <View style={shared.card}>
           <Text style={shared.cardTitle}>Dados principais da noite</Text>
+          <Item label="Data da noite" value={String(record.date).slice(0, 10)} />
+          <Item label="Dormiu" value={clockValue(record.sleepTime)} />
+          <Item label="Acordou" value={clockValue(record.wakeTime)} />
           <Item label="Horas dormidas" value={`${Number(record.totalHours).toFixed(2)}h`} />
           <Item label="Qualidade percebida" value={`${record.perceivedQuality}/5`} />
           <Item label="Despertares" value={record.awakenings >= 5 ? '5+' : String(record.awakenings)} />
@@ -150,6 +159,7 @@ function Item({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  content: { paddingHorizontal: 18, paddingTop: 24, paddingBottom: 170 },
   hero: { alignItems: 'center' },
   score: { fontSize: 54, fontWeight: '900', lineHeight: 62 },
   classification: { fontSize: 20, fontWeight: '900' },

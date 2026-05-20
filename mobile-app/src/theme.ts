@@ -157,7 +157,7 @@ export function translucentForStatus(status?: string | null, negative = false) {
 
 export const shared = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: 18, paddingTop: 22, paddingBottom: 112 },
+  content: { paddingHorizontal: 18, paddingTop: 22, paddingBottom: 170 },
   title: { color: colors.text, fontSize: 28, fontWeight: '900', marginBottom: 6, letterSpacing: -0.4 },
   subtitle: { color: colors.muted, fontSize: 14, marginBottom: 18, lineHeight: 20 },
   card: {

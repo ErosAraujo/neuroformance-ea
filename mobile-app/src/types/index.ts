@@ -80,6 +80,8 @@ export interface DailyIndicators {
   recovery: IndicatorResult;
   overloadRisk: IndicatorResult;
   generalStatus: string;
+  generalStatusScore?: number | null;
+  generalStatusClassification?: string | null;
   trend: string | null;
   message?: string;
 }
@@ -110,4 +112,28 @@ export interface Observation {
   teacherId: number;
   date: string;
   text: string;
+}
+
+export type InsightSeverity = 'positive' | 'neutral' | 'attention' | 'warning' | 'critical';
+
+export interface Insight {
+  id: string;
+  title: string;
+  message?: string;
+  description?: string;
+  category?: string;
+  audience?: 'student' | 'teacher' | 'both' | string;
+  screen?: string;
+  severity?: InsightSeverity | string;
+  priority?: 'low' | 'medium' | 'high' | 'critical' | string;
+  source?: string;
+  triggerReason?: string;
+  recommendedAction?: string;
+  createdAt?: string;
+}
+
+export interface StudentInsightsPayload {
+  insufficientDataMessage?: string | null;
+  insights?: Insight[];
+  blocks?: Array<{ id: string; title: string; value?: string | number; message?: string; severity?: string; priority?: string }>;
 }

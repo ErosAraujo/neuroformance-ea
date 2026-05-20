@@ -9,10 +9,10 @@
       "android",
       "web"
     ],
-    "icon": "./assets/icon.png",
+    "icon": "./assets/neuroformance-icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/neuroformance-splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#020617"
     },
@@ -20,18 +20,19 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/neuroformance-icon.png"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/neuroformance-adaptive-icon.png",
         "backgroundColor": "#020617"
       }
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/icon.png",
+      "favicon": "./assets/neuroformance-icon.png",
       "name": "Neuroformance EA",
       "shortName": "Neuroformance",
       "themeColor": "#8B5CF6",

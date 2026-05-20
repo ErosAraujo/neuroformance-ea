@@ -213,8 +213,13 @@ export default function SleepRecordScreen() {
         notes,
       };
       const response = editRecord ? await api.put(`/sleep-records/${editRecord.id}`, body) : await api.post('/sleep-records', body);
-      setEditRecord(response.data);
-      navigation.navigate('Results', { record: response.data });
+      const savedRecord = response.data?.record || response.data;
+      setEditRecord(savedRecord);
+      navigation.navigate('Results', {
+        record: savedRecord,
+        indicators: response.data?.indicators,
+        postRecordInsights: response.data?.postRecordInsights || [],
+      });
     } catch (error: any) {
       Alert.alert('Erro ao salvar', getApiErrorMessage(error, 'Não foi possível salvar o registro.'));
     } finally { setSaving(false); }
@@ -224,8 +229,8 @@ export default function SleepRecordScreen() {
   const handleWakeTimeChange = (value: string) => setWakeTime(formatClockInput(value));
 
   return (
-    <SafeAreaView style={shared.screen} edges={['left', 'right']}>
-    <ScrollView style={shared.screen} contentContainerStyle={shared.content} keyboardShouldPersistTaps="handled">
+    <SafeAreaView style={shared.screen} edges={['top', 'left', 'right']}>
+    <ScrollView style={shared.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={shared.title}>{editRecord ? 'Editar sono' : 'Registrar noite anterior'}</Text>
       <Text style={shared.subtitle}>Registre a noite que acabou. Escolha a data no calendário e preencha as escalas com números. Sim, sem hieróglifos emocionais.</Text>
       {editRecord && <Pressable style={shared.outlineButton} onPress={goToNewRecordForm} disabled={saving}><Text style={shared.outlineText}>Criar novo registro da noite anterior</Text></Pressable>}
@@ -305,15 +310,17 @@ function CalendarSelector({ selectedDate, onSelect }: { selectedDate: string; on
     if (parsed) setVisibleMonth(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
   }, [selectedDate]);
 
-  const cells = useMemo(() => {
+  const weeks = useMemo(() => {
     const first = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
     const start = new Date(first);
     start.setDate(first.getDate() - first.getDay());
-    return Array.from({ length: 42 }, (_, index) => {
-      const day = new Date(start);
-      day.setDate(start.getDate() + index);
-      return day;
-    });
+    return Array.from({ length: 6 }, (_, weekIndex) => (
+      Array.from({ length: 7 }, (_, dayIndex) => {
+        const day = new Date(start);
+        day.setDate(start.getDate() + weekIndex * 7 + dayIndex);
+        return day;
+      })
+    ));
   }, [visibleMonth]);
 
   const changeMonth = (offset: number) => {
@@ -329,22 +336,26 @@ function CalendarSelector({ selectedDate, onSelect }: { selectedDate: string; on
       </View>
       <View style={styles.weekRow}>{weekdays.map((day) => <Text key={day} style={styles.weekText}>{day}</Text>)}</View>
       <View style={styles.daysGrid}>
-        {cells.map((day) => {
-          const value = formatLocalDate(day);
-          const inMonth = day.getMonth() === visibleMonth.getMonth();
-          const selected = value === selectedDate;
-          const disabled = value > today();
-          return (
-            <Pressable
-              key={value}
-              onPress={() => !disabled && onSelect(value)}
-              disabled={disabled}
-              style={[styles.dayButton, selected && styles.daySelected, (!inMonth || disabled) && styles.dayMuted]}
-            >
-              <Text style={[styles.dayText, selected && styles.dayTextSelected, (!inMonth || disabled) && styles.dayTextMuted]}>{day.getDate()}</Text>
-            </Pressable>
-          );
-        })}
+        {weeks.map((week, weekIndex) => (
+          <View key={`week-${visibleMonth.getFullYear()}-${visibleMonth.getMonth()}-${weekIndex}`} style={styles.calendarWeek}>
+            {week.map((day) => {
+              const value = formatLocalDate(day);
+              const inMonth = day.getMonth() === visibleMonth.getMonth();
+              const selected = value === selectedDate;
+              const disabled = value > today();
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() => !disabled && onSelect(value)}
+                  disabled={disabled}
+                  style={[styles.dayButton, selected && styles.daySelected, (!inMonth || disabled) && styles.dayMuted]}
+                >
+                  <Text style={[styles.dayText, selected && styles.dayTextSelected, (!inMonth || disabled) && styles.dayTextMuted]}>{day.getDate()}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -379,6 +390,7 @@ function Toggle({ order, label, description, value, onValueChange }: { order: nu
   );
 }
 const styles = StyleSheet.create({
+  content: { paddingHorizontal: 18, paddingTop: 28, paddingBottom: 170 },
   row: { flexDirection: 'row', gap: 10, marginTop: 12 },
   half: { flex: 1, minWidth: 0 },
   totalBox: { backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: 18, padding: 16, marginTop: 12, marginBottom: 2, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -401,8 +413,9 @@ const styles = StyleSheet.create({
   calendarTitle: { color: colors.text, fontWeight: '900', fontSize: 15, textTransform: 'capitalize' },
   weekRow: { flexDirection: 'row', marginBottom: 6 },
   weekText: { flex: 1, textAlign: 'center', color: colors.subtle, fontSize: 11, fontWeight: '800' },
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayButton: { width: `${100 / 7}%`, aspectRatio: 1.22, alignItems: 'center', justifyContent: 'center', borderRadius: 12, marginVertical: 1 },
+  daysGrid: { gap: 2 },
+  calendarWeek: { flexDirection: 'row' },
+  dayButton: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, marginVertical: 1 },
   daySelected: { backgroundColor: colors.primary },
   dayMuted: { opacity: 0.42 },
   dayText: { color: colors.text, fontWeight: '800', fontSize: 12 },

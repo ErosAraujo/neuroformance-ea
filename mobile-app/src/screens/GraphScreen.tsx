@@ -19,7 +19,7 @@ type ChartConfigItem = {
 };
 
 const charts: ChartConfigItem[] = [
-  { key: 'scoreTotal', title: 'Score total', description: 'Score real salvo em cada noite registrada pelo backend.' },
+  { key: 'scoreTotal', title: 'Score total', description: 'Pontuação final registrada em cada noite.' },
   { key: 'statusGeneral', title: 'Status geral', description: 'Média normalizada dos indicadores do dia, invertendo fadiga e risco.' },
   { key: 'readiness', title: 'Prontidão para treino', description: 'Estimativa de preparo do corpo para treinar com base nos registros recentes.' },
   { key: 'recovery', title: 'Recuperação corporal', description: 'Leitura de recuperação baseada em sono, energia, estado ao acordar e fadiga.' },
@@ -36,7 +36,7 @@ const charts: ChartConfigItem[] = [
   { key: 'mood', title: 'Humor ao acordar', description: 'Nota marcada pelo aluno de 1 a 5.' },
   { key: 'generalPain', title: 'Dor muscular geral', description: 'Dor muscular geral. Quanto menor, melhor.', negative: true },
   { key: 'bodyHeaviness', title: 'Sensação de corpo pesado', description: 'Sensação de corpo pesado. Quanto menor, melhor.', negative: true },
-  { key: 'regularity', title: 'Regularidade', description: 'Pontuação de regularidade do sono calculada pelo backend.' },
+  { key: 'regularity', title: 'Regularidade', description: 'Pontuação de regularidade dos horários de sono.' },
   { key: 'nap', title: 'Cochilo no dia anterior', description: '0 = não marcou; 1 = marcou.', negative: true, boolean: true },
   { key: 'caffeine', title: 'Cafeína após 18h', description: '0 = não marcou; 1 = marcou.', negative: true, boolean: true },
   { key: 'alcohol', title: 'Álcool no dia anterior', description: '0 = não marcou; 1 = marcou.', negative: true, boolean: true },
@@ -54,8 +54,8 @@ export default function GraphScreen() {
   const fetchRecords = useCallback(async () => {
     setLoading(true); setLoadError(null);
     try {
-      const res = await api.get('/sleep-records?days=30');
-      const list = Array.isArray(res.data) ? [...res.data] : [];
+      const recordsRes = await api.get('/sleep-records?days=30');
+      const list = Array.isArray(recordsRes.data) ? [...recordsRes.data] : [];
       setRecords(list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
     } catch (error) {
       setLoadError(getApiErrorMessage(error, 'Não foi possível carregar os gráficos.'));
@@ -69,10 +69,10 @@ export default function GraphScreen() {
   const points = useMemo(() => buildHistoricalIndicatorPoints(records), [records]);
 
   return (
-    <SafeAreaView style={shared.screen} edges={['left', 'right']}>
-      <ScrollView style={shared.screen} contentContainerStyle={shared.content}>
+    <SafeAreaView style={shared.screen} edges={['top', 'left', 'right']}>
+      <ScrollView style={shared.screen} contentContainerStyle={styles.content}>
         <Text style={shared.title}>Gráficos</Text>
-        <Text style={shared.subtitle}>Evolução dos últimos registros com Score Total, Status Geral, indicadores da Home e campos do registro. Tudo com dados reais, porque número inventado é fanfic com planilha.</Text>
+        <Text style={shared.subtitle}>Acompanhe a evolução dos seus últimos registros, indicadores e hábitos de sono ao longo do tempo.</Text>
         {loadError && (
           <View style={[shared.card, styles.errorCard]}>
             <Text style={styles.errorTitle}>Falha ao carregar gráficos</Text>
@@ -99,7 +99,7 @@ export default function GraphScreen() {
             />
           ))
         ) : (
-          <Text style={shared.muted}>{loadError ? 'Gráficos indisponíveis até a API responder.' : 'Nenhum registro para exibir.'}</Text>
+          <Text style={shared.muted}>{loadError ? 'Gráficos indisponíveis no momento.' : 'Nenhum registro para exibir.'}</Text>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -132,6 +132,12 @@ function Chart({ title, description, labels, data, suffix, valueSuffix, decimals
   const safeValues = chartValues.length === 1 ? [chartValues[0], chartValues[0]] : chartValues;
   const safeLabels = chartValues.length === 1 ? [valid[0].label, ''] : chartLabels;
   const latest = valid[valid.length - 1];
+  const first = valid[0];
+  const delta = latest.value - first.value;
+  const direction = Math.abs(delta) < 0.5 ? 'estável' : delta > 0 ? 'subiu' : 'caiu';
+  const interpretation = negative
+    ? direction === 'subiu' ? 'piorou, porque este indicador deve ficar mais baixo.' : direction === 'caiu' ? 'melhorou, porque este indicador deve ficar mais baixo.' : 'ficou estável no período.'
+    : direction === 'subiu' ? 'melhorou no período.' : direction === 'caiu' ? 'caiu no período e merece atenção.' : 'ficou estável no período.';
   const max = Math.max(...valid.map((item) => item.value));
   const min = Math.min(...valid.map((item) => item.value));
   const best = negative ? min : max;
@@ -167,6 +173,10 @@ function Chart({ title, description, labels, data, suffix, valueSuffix, decimals
         <MiniStat label={negative ? 'Melhor' : 'Maior'} value={formatValue(best, decimals, valueSuffix, booleanValue)} />
         <MiniStat label={negative ? 'Pior pico' : 'Menor'} value={formatValue(worst, decimals, valueSuffix, booleanValue)} />
       </View>
+      <View style={styles.chartInsight}>
+        <Text style={styles.chartInsightTitle}>Insight principal</Text>
+        <Text style={styles.chartInsightMessage}>{title} {interpretation} Atual: {formatValue(latest.value, decimals, valueSuffix, booleanValue)}.</Text>
+      </View>
       <View style={styles.valuesStrip}>
         {valid.slice(-7).map((item) => (
           <View key={`${title}-${item.label}`} style={styles.valuePill}>
@@ -189,17 +199,21 @@ function MiniStat({ label, value, accent = colors.text }: { label: string; value
 }
 
 const styles = StyleSheet.create({
+  content: { paddingHorizontal: 18, paddingTop: 24, paddingBottom: 170 },
   chartWrap: { alignItems: 'center', overflow: 'hidden', marginTop: 4 },
   chart: { borderRadius: 18, marginTop: 8 },
   description: { color: colors.muted, fontSize: 13, lineHeight: 19, marginBottom: 8 },
+  chartInsight: { borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 10, backgroundColor: colors.surfaceAlt, marginTop: 10 },
+  chartInsightTitle: { color: colors.text, fontWeight: '900', marginBottom: 4 },
+  chartInsightMessage: { color: colors.muted, lineHeight: 18 },
   statsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  miniStat: { flex: 1, minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 15, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', padding: 8 },
-  miniValue: { color: colors.text, fontSize: 16, fontWeight: '900' },
-  miniLabel: { color: colors.muted, fontSize: 11, fontWeight: '800', marginTop: 3, textAlign: 'center' },
-  valuesStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
-  valuePill: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 9, backgroundColor: 'rgba(255,255,255,0.055)' },
-  valueDate: { color: colors.subtle, fontSize: 10, fontWeight: '800' },
-  valueText: { color: colors.text, fontSize: 12, fontWeight: '900', marginTop: 1 },
+  miniStat: { flex: 1, minHeight: 62, borderWidth: 1, borderColor: colors.border, borderRadius: 16, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', padding: 8 },
+  miniValue: { color: colors.text, fontSize: 17, fontWeight: '900', textAlign: 'center', includeFontPadding: false },
+  miniLabel: { color: colors.muted, fontSize: 11, fontWeight: '800', marginTop: 4, textAlign: 'center' },
+  valuesStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' },
+  valuePill: { width: 58, height: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 29, backgroundColor: 'rgba(255,255,255,0.055)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  valueDate: { color: colors.subtle, fontSize: 10, fontWeight: '800', textAlign: 'center', includeFontPadding: false },
+  valueText: { color: colors.text, fontSize: 13, fontWeight: '900', marginTop: 3, textAlign: 'center', includeFontPadding: false },
   errorCard: { borderColor: colors.danger },
   errorTitle: { color: colors.danger, fontWeight: '900', fontSize: 16, marginBottom: 8 },
 });
