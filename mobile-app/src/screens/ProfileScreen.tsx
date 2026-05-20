@@ -50,7 +50,19 @@ async function registerWebNotification(reminderTime: string) {
   const { data } = await api.get('/push/public-key');
   if (!data?.publicKey) throw new Error('Configuração de lembretes indisponível no momento.');
   const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(data.publicKey) });
-  await api.post('/push/subscribe', { ...subscription.toJSON(), userAgent: navigator.userAgent });
+  await api.post('/push/subscribe', {
+  ...subscription.toJSON(),
+  userAgent: navigator.userAgent,
+  reminderEnabled: true,
+  reminderTime,
+  timezone: 'America/Sao_Paulo',
+});
+
+await api.patch('/push/settings', {
+  reminderEnabled: true,
+  reminderTime,
+  timezone: 'America/Sao_Paulo',
+});
   await api.patch('/push/settings', { reminderEnabled: true, reminderTime, timezone: 'America/Sao_Paulo' });
   await registration.showNotification('Lembrete de sono ativado', { body: 'Você receberá lembretes para registrar sua noite diariamente.', icon: '/icon.png', badge: '/icon.png' });
 }
