@@ -3324,3 +3324,186 @@ body{background:radial-gradient(circle at 80% 0%,rgba(31,75,155,.24),transparent
     min-width: 56px !important;
   }
 }
+
+/* === AJUSTE DEFINITIVO MOBILE HEADER PROFESSOR 2026-05-20 ===
+   Ordem correta:
+   1. Marca do app
+   2. Botão sair à direita
+   3. Saudação
+   4. Perfil/foto do professor
+*/
+
+@media (max-width: 560px) {
+  .teacherPremiumHeader,
+  .teacherPage-dashboard .teacherPremiumHeader,
+  .teacherPage-alunos .teacherPremiumHeader,
+  .teacherPage-acessos .teacherPremiumHeader,
+  .teacherPage-alertas .teacherPremiumHeader {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "brand"
+      "logout"
+      "greeting"
+      "profile" !important;
+    gap: 14px !important;
+  }
+
+  .teacherHeaderBrand,
+  .teacherPage-dashboard .teacherHeaderBrand,
+  .teacherPage-alunos .teacherHeaderBrand,
+  .teacherPage-acessos .teacherHeaderBrand,
+  .teacherPage-alertas .teacherHeaderBrand {
+    grid-area: brand !important;
+  }
+
+  .teacherHeaderGreeting,
+  .teacherPage-dashboard .teacherHeaderGreeting,
+  .teacherPage-alunos .teacherHeaderGreeting,
+  .teacherPage-acessos .teacherHeaderGreeting,
+  .teacherPage-alertas .teacherHeaderGreeting {
+    grid-area: greeting !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 14px 0 !important;
+    margin: 0 !important;
+    border-top: 1px solid rgba(148, 163, 184, .18) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, .18) !important;
+  }
+
+  .teacherHeaderProfile,
+  .teacherPage-dashboard .teacherHeaderProfile,
+  .teacherPage-alunos .teacherHeaderProfile,
+  .teacherPage-acessos .teacherHeaderProfile,
+  .teacherPage-alertas .teacherHeaderProfile {
+    display: contents !important;
+  }
+
+  .teacherHeaderActionsFloating,
+  .teacherPage-dashboard .teacherHeaderActionsFloating,
+  .teacherPage-alunos .teacherHeaderActionsFloating,
+  .teacherPage-acessos .teacherHeaderActionsFloating,
+  .teacherPage-alertas .teacherHeaderActionsFloating {
+    grid-area: logout !important;
+    position: static !important;
+    justify-self: end !important;
+    align-self: center !important;
+    width: auto !important;
+    min-width: 96px !important;
+    max-width: 120px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+  }
+
+  .teacherHeaderActionsFloating > button,
+  .teacherHeaderActionsFloating .logoutButton {
+    width: 100% !important;
+    min-width: 96px !important;
+    max-width: 120px !important;
+    height: 50px !important;
+    padding: 0 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    border-radius: 14px !important;
+    white-space: nowrap !important;
+  }
+
+  .profileCapsule,
+  .teacherPage-dashboard .profileCapsule,
+  .teacherPage-alunos .profileCapsule,
+  .teacherPage-acessos .profileCapsule,
+  .teacherPage-alertas .profileCapsule {
+    grid-area: profile !important;
+    justify-self: start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: 58px minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .profileAvatar,
+  .teacherPage-dashboard .profileAvatar,
+  .teacherPage-alunos .profileAvatar,
+  .teacherPage-acessos .profileAvatar,
+  .teacherPage-alertas .profileAvatar {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+  }
+
+  .profileCapsule strong {
+    font-size: 18px !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .profileCapsule small {
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+    white-space: normal !important;
+  }
+
+  .profileCapsule em {
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .teacherHeaderActionsFloating,
+  .teacherPage-dashboard .teacherHeaderActionsFloating,
+  .teacherPage-alunos .teacherHeaderActionsFloating,
+  .teacherPage-acessos .teacherHeaderActionsFloating,
+  .teacherPage-alertas .teacherHeaderActionsFloating {
+    min-width: 86px !important;
+    max-width: 96px !important;
+  }
+
+  .teacherHeaderActionsFloating > button,
+  .teacherHeaderActionsFloating .logoutButton {
+    min-width: 86px !important;
+    max-width: 96px !important;
+    height: 46px !important;
+    font-size: 13px !important;
+    padding: 0 8px !important;
+  }
+
+  .profileCapsule,
+  .teacherPage-dashboard .profileCapsule,
+  .teacherPage-alunos .profileCapsule,
+  .teacherPage-acessos .profileCapsule,
+  .teacherPage-alertas .profileCapsule {
+    grid-template-columns: 50px minmax(0, 1fr) !important;
+    padding: 10px 12px !important;
+  }
+
+  .profileAvatar,
+  .teacherPage-dashboard .profileAvatar,
+  .teacherPage-alunos .profileAvatar,
+  .teacherPage-acessos .profileAvatar,
+  .teacherPage-alertas .profileAvatar {
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px !important;
+  }
+
+  .profileCapsule strong {
+    font-size: 16px !important;
+  }
+
+  .profileCapsule small,
+  .profileCapsule em {
+    font-size: 11px !important;
+  }
+}
