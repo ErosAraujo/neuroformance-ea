@@ -14,7 +14,7 @@
     "splash": {
       "image": "./assets/neuroformance-splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#020617"
+      "backgroundColor": "#020817"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -26,7 +26,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/neuroformance-adaptive-icon.png",
-        "backgroundColor": "#020617"
+        "backgroundColor": "#020817"
       }
     },
     "web": {

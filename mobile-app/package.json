@@ -10,7 +10,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "doctor": "expo-doctor",
-    "build:web": "expo export --platform web",
+    "build:web": "expo export --platform web && node scripts/postbuild-pwa.cjs",
     "serve:web": "npx serve dist",
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck"
