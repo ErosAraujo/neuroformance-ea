@@ -13,7 +13,27 @@ type StudentLike = {
 };
 
 const localStudentPhotos: Record<string, ImageSourcePropType> = {
+  [normalizeStudentName('Barbara Weinstein')]: require('../../assets/fotos/Barbara Weinstein.jpeg'),
+  [normalizeStudentName('Cahique Benfeitas')]: require('../../assets/fotos/Cahique Benfeitas.jpeg'),
+  [normalizeStudentName('Carla Vignoli')]: require('../../assets/fotos/Carla Vignoli.jpeg'),
+  [normalizeStudentName('Cristiane Morais')]: require('../../assets/fotos/Cristiane Morais.jpeg'),
+  [normalizeStudentName('Dante Cid')]: require('../../assets/fotos/Dante Cid.jpeg'),
   [normalizeStudentName('Eros Carneiro')]: require('../../assets/fotos/Eros Carneiro.jpeg'),
+  [normalizeStudentName('Gabriel Borges')]: require('../../assets/fotos/Gabriel Borges.jpeg'),
+  [normalizeStudentName('Gabriela Perez')]: require('../../assets/fotos/Gabriela Perez.jpeg'),
+  [normalizeStudentName('Gregorio Rodrigues')]: require('../../assets/fotos/Gregorio Rodrigues.jpeg'),
+  [normalizeStudentName('Ingrid Lucio')]: require('../../assets/fotos/Ingrid Lucio.jpeg'),
+  [normalizeStudentName('Italo Valu')]: require('../../assets/fotos/Italo Valu.jpeg'),
+  [normalizeStudentName('Jose Geraldo')]: require('../../assets/fotos/Jose Geraldo.png'),
+  [normalizeStudentName('Luciana Miranda')]: require('../../assets/fotos/Luciana Miranda.jpeg'),
+  [normalizeStudentName('Luiza Paim')]: require('../../assets/fotos/Luiza Paim.jpeg'),
+  [normalizeStudentName('Marcela Norfini')]: require('../../assets/fotos/Marcela Norfini.jpeg'),
+  [normalizeStudentName('Marianna Lucciola')]: require('../../assets/fotos/Marianna Lucciola.jpeg'),
+  [normalizeStudentName('Milie Castro')]: require('../../assets/fotos/Milie Castro.jpeg'),
+  [normalizeStudentName('Thais Vasconcelos')]: require('../../assets/fotos/Thais Vasconcelos.jpeg'),
+  [normalizeStudentName('Thamirez Rodrigues')]: require('../../assets/fotos/Thamirez Rodrigues.jpeg'),
+  [normalizeStudentName('Thereza Cid')]: require('../../assets/fotos/Thereza Cid.jpeg'),
+  [normalizeStudentName('Vinicius Mol')]: require('../../assets/fotos/Vinicius Mol.jpeg'),
 };
 
 export function normalizeStudentName(name?: string | null) {
