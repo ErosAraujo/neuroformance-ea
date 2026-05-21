@@ -3,6 +3,7 @@ import webpush from 'web-push';
 import prisma from '../models/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { getStudentIdByUserId } from '../services/identityService';
+import { sendDueSleepReminders } from '../services/pushReminderService';
 
 function configureWebPush() {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
@@ -307,12 +308,10 @@ export class PushController {
       ),
     );
 
-    const rejectedResults = results.filter(
-      (result) => result.status === 'rejected',
-    ) as PromiseRejectedResult[];
-
     await Promise.all(
-      rejectedResults.map(async (result, index) => {
+      results.map(async (result, index) => {
+        if (result.status !== 'rejected') return;
+
         const error = result.reason;
 
         if (error?.statusCode === 404 || error?.statusCode === 410) {
@@ -337,5 +336,33 @@ export class PushController {
       sent: results.filter((r) => r.status === 'fulfilled').length,
       failed: results.filter((r) => r.status === 'rejected').length,
     });
+  }
+
+  static async runDueReminders(req: AuthRequest, res: Response) {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Não autenticado.' });
+    }
+
+    if (req.user.profile !== 'teacher') {
+      return res.status(403).json({
+        message: 'Apenas professor pode executar o disparo manual dos lembretes.',
+      });
+    }
+
+    try {
+      const result = await sendDueSleepReminders(new Date());
+
+      return res.json({
+        ok: true,
+        ...result,
+      });
+    } catch (error) {
+      console.error('Erro ao executar lembretes manualmente:', error);
+
+      return res.status(500).json({
+        ok: false,
+        message: 'Erro ao executar lembretes manualmente.',
+      });
+    }
   }
 }
