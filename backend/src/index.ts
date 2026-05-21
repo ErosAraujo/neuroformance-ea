@@ -12,6 +12,7 @@ import observationRoutes from './routes/observationRoutes';
 import teacherRoutes from './routes/teacherRoutes';
 import indicatorRoutes from './routes/indicatorRoutes';
 import pushRoutes from './routes/pushRoutes';
+import { PushController } from './controllers/PushController';
 import { authMiddleware } from './middleware/authMiddleware';
 import { globalRateLimit, loginRateLimit } from './middleware/rateLimitMiddleware';
 import { corsOrigin } from './config';
@@ -33,6 +34,7 @@ app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin.split(',').map((it
 app.use(express.json());
 app.use(globalRateLimit);
 app.use('/api/auth/login', loginRateLimit);
+app.post('/api/push/cron/run-due-reminders', PushController.runDueRemindersCron);
 
 app.get('/health', async (_req, res) => {
   try {

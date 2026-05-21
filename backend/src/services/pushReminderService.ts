@@ -4,6 +4,37 @@ import prisma from '../models/prisma';
 const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
 const DEFAULT_REMINDER_TIME = '08:00';
 
+export type PushReminderDecision = 'sent' | 'skipped' | 'failed';
+
+export interface PushReminderDetail {
+  subscriptionId: number;
+  userId: number;
+  studentId: number | null;
+  active: boolean;
+  reminderEnabled: boolean;
+  reminderTime: string;
+  timezone: string;
+  nowTime: string;
+  today: string;
+  lastSentAt: string | null;
+  decision: PushReminderDecision;
+  reason: string;
+  alreadyRegistered?: boolean;
+  expectedRecordDate?: string;
+  errorStatusCode?: number;
+  errorMessage?: string;
+}
+
+export interface PushReminderResult {
+  ok: boolean;
+  skipped: boolean;
+  reason?: string;
+  sent: number;
+  failed: number;
+  checked: number;
+  details: PushReminderDetail[];
+}
+
 function configureWebPush() {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -59,81 +90,106 @@ function startEndOfDate(dateOnly: string) {
 
 function normalizeHHmm(value: string | null | undefined) {
   const raw = typeof value === 'string' ? value.trim() : '';
-
-  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) {
-    return raw;
-  }
-
-  return DEFAULT_REMINDER_TIME;
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(raw) ? raw : DEFAULT_REMINDER_TIME;
 }
 
 function toMinutes(hhmm: string) {
-  const [hour, minute] = hhmm.split(':').map(Number);
+  const [hour, minute] = normalizeHHmm(hhmm).split(':').map(Number);
   return hour * 60 + minute;
 }
 
-function shouldCheckTime(nowHHmm: string, reminderHHmm: string) {
-  const nowMinutes = toMinutes(normalizeHHmm(nowHHmm));
-  const reminderMinutes = toMinutes(normalizeHHmm(reminderHHmm));
-
-  /*
-    Antes:
-    só enviava entre o horário marcado e +9 minutos.
-
-    Agora:
-    envia em qualquer checagem após o horário marcado,
-    desde que ainda não tenha enviado hoje.
-
-    Isso evita perder o push quando Render atrasa/dorme/reinicia.
-  */
-  return nowMinutes >= reminderMinutes;
+function hasReminderTimeArrived(nowHHmm: string, reminderHHmm: string) {
+  return toMinutes(nowHHmm) >= toMinutes(reminderHHmm);
 }
 
-export async function sendDueSleepReminders(now = new Date()) {
+function baseDetail(sub: any, now: Date): Omit<PushReminderDetail, 'decision' | 'reason'> {
+  const timezone = DEFAULT_TIMEZONE;
+  return {
+    subscriptionId: sub.id,
+    userId: sub.userId,
+    studentId: sub.studentId ?? null,
+    active: sub.active,
+    reminderEnabled: sub.reminderEnabled,
+    reminderTime: normalizeHHmm(sub.reminderTime || DEFAULT_REMINDER_TIME),
+    timezone,
+    nowTime: localTimeInTimezone(now, timezone),
+    today: localDateInTimezone(now, timezone),
+    lastSentAt: sub.lastSentAt ? sub.lastSentAt.toISOString() : null,
+  };
+}
+
+function logDetail(detail: PushReminderDetail) {
+  console.log('[push-reminder]', JSON.stringify(detail));
+}
+
+function finishDetail(details: PushReminderDetail[], detail: PushReminderDetail) {
+  details.push(detail);
+  logDetail(detail);
+}
+
+export async function sendDueSleepReminders(now = new Date()): Promise<PushReminderResult> {
   if (!configureWebPush()) {
-    return {
+    const result: PushReminderResult = {
+      ok: false,
       skipped: true,
-      reason: 'VAPID não configurado',
+      reason: 'VAPID nao configurado',
       sent: 0,
       failed: 0,
+      checked: 0,
+      details: [],
     };
+    console.warn('[push-reminder]', JSON.stringify(result));
+    return result;
   }
 
   const subscriptions = await prisma.pushSubscription.findMany({
-    where: {
-      active: true,
-      reminderEnabled: true,
-    },
     include: {
       student: true,
+    },
+    orderBy: {
+      id: 'asc',
     },
   });
 
   let sent = 0;
   let failed = 0;
+  const details: PushReminderDetail[] = [];
 
   for (const sub of subscriptions) {
-    const timezone = sub.timezone || DEFAULT_TIMEZONE;
-    const today = localDateInTimezone(now, timezone);
-    const nowTime = localTimeInTimezone(now, timezone);
-    const reminderTime = normalizeHHmm(sub.reminderTime || DEFAULT_REMINDER_TIME);
+    const base = baseDetail(sub, now);
+    const expectedRecordDate = previousDate(base.today);
 
-    if (!sub.studentId || !sub.student) continue;
-
-    if (sub.student.status !== 'active' || sub.student.active !== true) {
+    if (!sub.active) {
+      finishDetail(details, { ...base, expectedRecordDate, decision: 'skipped', reason: 'subscription inativa' });
       continue;
     }
 
-    if (!shouldCheckTime(nowTime, reminderTime)) {
+    if (!sub.reminderEnabled) {
+      finishDetail(details, { ...base, expectedRecordDate, decision: 'skipped', reason: 'lembrete desativado' });
       continue;
     }
 
-    if (sub.lastSentAt && localDateInTimezone(sub.lastSentAt, timezone) === today) {
+    if (!sub.studentId) {
+      finishDetail(details, { ...base, expectedRecordDate, decision: 'skipped', reason: 'sem studentId' });
       continue;
     }
 
-    const { start, end } = startEndOfDate(previousDate(today));
+    if (!sub.student || sub.student.status !== 'active' || sub.student.active !== true) {
+      finishDetail(details, { ...base, expectedRecordDate, decision: 'skipped', reason: 'aluno inexistente/inativo' });
+      continue;
+    }
 
+    if (!hasReminderTimeArrived(base.nowTime, base.reminderTime)) {
+      finishDetail(details, { ...base, expectedRecordDate, decision: 'skipped', reason: 'horario ainda nao chegou' });
+      continue;
+    }
+
+    if (sub.lastSentAt && localDateInTimezone(sub.lastSentAt, DEFAULT_TIMEZONE) === base.today) {
+      finishDetail(details, { ...base, expectedRecordDate, decision: 'skipped', reason: 'ja enviado hoje' });
+      continue;
+    }
+
+    const { start, end } = startEndOfDate(expectedRecordDate);
     const alreadyRegistered = await prisma.sleepRecord.findFirst({
       where: {
         studentId: sub.studentId,
@@ -142,9 +198,19 @@ export async function sendDueSleepReminders(now = new Date()) {
           lte: end,
         },
       },
+      select: {
+        id: true,
+      },
     });
 
     if (alreadyRegistered) {
+      finishDetail(details, {
+        ...base,
+        expectedRecordDate,
+        alreadyRegistered: true,
+        decision: 'skipped',
+        reason: 'sono ja registrado',
+      });
       continue;
     }
 
@@ -159,7 +225,7 @@ export async function sendDueSleepReminders(now = new Date()) {
         },
         JSON.stringify({
           title: 'Hora de registrar seu sono.',
-          body: 'Registre como foi sua noite para o professor acompanhar sua recuperação e ajustar o treino com mais precisão.',
+          body: 'Registre como foi sua noite para o professor acompanhar sua recuperacao e ajustar o treino com mais precisao.',
         }),
       );
 
@@ -173,6 +239,13 @@ export async function sendDueSleepReminders(now = new Date()) {
       });
 
       sent += 1;
+      finishDetail(details, {
+        ...base,
+        expectedRecordDate,
+        alreadyRegistered: false,
+        decision: 'sent',
+        reason: 'enviado',
+      });
     } catch (error: any) {
       failed += 1;
 
@@ -187,31 +260,45 @@ export async function sendDueSleepReminders(now = new Date()) {
           },
         });
       }
+
+      finishDetail(details, {
+        ...base,
+        expectedRecordDate,
+        alreadyRegistered: false,
+        decision: 'failed',
+        reason: 'erro webpush',
+        errorStatusCode: typeof error?.statusCode === 'number' ? error.statusCode : undefined,
+        errorMessage: error?.message ? String(error.message) : undefined,
+      });
     }
   }
 
-  return {
+  const result: PushReminderResult = {
+    ok: true,
     skipped: false,
     sent,
     failed,
+    checked: subscriptions.length,
+    details,
   };
+
+  console.log('[push-reminder-summary]', JSON.stringify({ sent, failed, checked: subscriptions.length }));
+  return result;
 }
 
 export function startSleepReminderJob() {
   const intervalMs = Number(process.env.PUSH_REMINDER_INTERVAL_MS || 5 * 60 * 1000);
+  const safeIntervalMs = Number.isFinite(intervalMs) && intervalMs >= 60_000 ? intervalMs : 5 * 60 * 1000;
 
-  const safeIntervalMs =
-    Number.isFinite(intervalMs) && intervalMs >= 60_000
-      ? intervalMs
-      : 5 * 60 * 1000;
+  console.log(`[push-reminder-job] iniciado com intervalo de ${safeIntervalMs}ms`);
 
   sendDueSleepReminders().catch((error) => {
-    console.error('Erro ao executar push diário inicial:', error);
+    console.error('Erro ao executar push diario inicial:', error);
   });
 
   const timer = setInterval(() => {
     sendDueSleepReminders().catch((error) => {
-      console.error('Erro no job de push diário:', error);
+      console.error('Erro no job de push diario:', error);
     });
   }, safeIntervalMs);
 

@@ -28,6 +28,7 @@ copyFile("icon.png");
 copyFile("icon-192.png");
 copyFile("icon-512.png");
 copyFile("apple-touch-icon.png");
+copyFile("sw.js");
 
 if (fs.existsSync(indexPath)) {
   let html = fs.readFileSync(indexPath, "utf8");
