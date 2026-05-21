@@ -19,7 +19,6 @@ export interface PushReminderDetail {
   lastSentAt: string | null;
   decision: PushReminderDecision;
   reason: string;
-  alreadyRegistered?: boolean;
   expectedRecordDate?: string;
   errorStatusCode?: number;
   errorMessage?: string;
@@ -79,13 +78,6 @@ function previousDate(dateOnly: string) {
   const d = new Date(`${dateOnly}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
-}
-
-function startEndOfDate(dateOnly: string) {
-  return {
-    start: new Date(`${dateOnly}T00:00:00.000Z`),
-    end: new Date(`${dateOnly}T23:59:59.999Z`),
-  };
 }
 
 function normalizeHHmm(value: string | null | undefined) {
@@ -189,31 +181,6 @@ export async function sendDueSleepReminders(now = new Date()): Promise<PushRemin
       continue;
     }
 
-    const { start, end } = startEndOfDate(expectedRecordDate);
-    const alreadyRegistered = await prisma.sleepRecord.findFirst({
-      where: {
-        studentId: sub.studentId,
-        date: {
-          gte: start,
-          lte: end,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (alreadyRegistered) {
-      finishDetail(details, {
-        ...base,
-        expectedRecordDate,
-        alreadyRegistered: true,
-        decision: 'skipped',
-        reason: 'sono ja registrado',
-      });
-      continue;
-    }
-
     try {
       await webpush.sendNotification(
         {
@@ -242,7 +209,6 @@ export async function sendDueSleepReminders(now = new Date()): Promise<PushRemin
       finishDetail(details, {
         ...base,
         expectedRecordDate,
-        alreadyRegistered: false,
         decision: 'sent',
         reason: 'enviado',
       });
@@ -264,7 +230,6 @@ export async function sendDueSleepReminders(now = new Date()): Promise<PushRemin
       finishDetail(details, {
         ...base,
         expectedRecordDate,
-        alreadyRegistered: false,
         decision: 'failed',
         reason: 'erro webpush',
         errorStatusCode: typeof error?.statusCode === 'number' ? error.statusCode : undefined,
