@@ -68,11 +68,14 @@ await api.patch('/push/settings', {
 }
 
 export default function ProfileScreen() {
-  const { user, logout } = useContext(AuthContext);
+  const { user, updateProfile, logout } = useContext(AuthContext);
   const navigation = useNavigation<any>();
   const [reminderTime, setReminderTime] = useState('08:00');
   const [notificationStatus, setNotificationStatus] = useState(getNotificationPermission());
   const [savingReminder, setSavingReminder] = useState(false);
+  const [profileName, setProfileName] = useState(user?.name || '');
+  const [profileEmail, setProfileEmail] = useState(user?.email || '');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
   let mounted = true;
@@ -104,6 +107,11 @@ export default function ProfileScreen() {
   };
 }, []);
 
+  useEffect(() => {
+    setProfileName(user?.name || '');
+    setProfileEmail(user?.email || '');
+  }, [user?.name, user?.email]);
+
   const activateReminder = async () => {
     const normalized = normalizeClockOnBlur(reminderTime);
     setReminderTime(normalized);
@@ -134,6 +142,28 @@ export default function ProfileScreen() {
       Alert.alert('Erro', getApiErrorMessage(error, 'Não foi possível desativar o lembrete.'));
     } finally {
       setSavingReminder(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    const name = profileName.trim();
+    const email = profileEmail.trim().toLowerCase();
+    if (name.length < 2) {
+      Alert.alert('Nome invalido', 'Informe pelo menos 2 caracteres.');
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      Alert.alert('E-mail invalido', 'Informe um e-mail valido.');
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      await updateProfile(name, email);
+      Alert.alert('Perfil atualizado', 'Seus dados foram salvos.');
+    } catch (error) {
+      Alert.alert('Erro', getApiErrorMessage(error, 'Nao foi possivel atualizar seus dados.'));
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -180,6 +210,49 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
+
+        <View style={styles.accountCard}>
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.iconHalo}>
+              <MaterialCommunityIcons name="account-edit-outline" size={28} color={colors.primary} />
+            </View>
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Dados da conta</Text>
+              <Text style={styles.reminderIntro}>Atualize seu nome e e-mail de acesso.</Text>
+            </View>
+          </View>
+
+          <View style={styles.accountField}>
+            <Text style={styles.inputLabel}>Nome</Text>
+            <TextInput
+              style={styles.accountInput}
+              value={profileName}
+              onChangeText={setProfileName}
+              placeholder="Seu nome"
+              placeholderTextColor={colors.subtle}
+              autoCapitalize="words"
+            />
+          </View>
+
+          <View style={styles.accountField}>
+            <Text style={styles.inputLabel}>E-mail</Text>
+            <TextInput
+              style={styles.accountInput}
+              value={profileEmail}
+              onChangeText={setProfileEmail}
+              placeholder="seu@email.com"
+              placeholderTextColor={colors.subtle}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+            />
+          </View>
+
+          <Pressable style={[styles.secondaryButton, savingProfile && styles.disabled]} onPress={saveProfile} disabled={savingProfile}>
+            <MaterialCommunityIcons name="content-save-outline" size={23} color={colors.primary} />
+            <Text style={styles.secondaryButtonText}>{savingProfile ? 'Salvando...' : 'Salvar dados'}</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.reminderCard}>
           <View style={styles.cardHeaderRow}>
@@ -369,6 +442,33 @@ const styles = StyleSheet.create({
   profileInfo: { flex: 1, minWidth: 0 },
   profileName: { color: colors.text, fontSize: 24, fontWeight: '900', marginBottom: 5, letterSpacing: -0.4 },
   profileEmail: { color: colors.muted, fontSize: 14, lineHeight: 19, marginBottom: 10 },
+  accountCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 26,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 22,
+    elevation: 3,
+  },
+  accountField: {
+    marginBottom: 12,
+  },
+  accountInput: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    color: colors.text,
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    fontSize: 16,
+    fontWeight: '800',
+  },
   roleChip: {
     alignSelf: 'flex-start',
     borderRadius: 999,

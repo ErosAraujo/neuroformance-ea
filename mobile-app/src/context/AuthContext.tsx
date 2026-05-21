@@ -16,6 +16,7 @@ interface AuthContextProps {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, teacherCode: string) => Promise<void>;
+  updateProfile: (name: string, email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -25,6 +26,7 @@ export const AuthContext = createContext<AuthContextProps>({
   loading: true,
   login: async () => {},
   register: async () => {},
+  updateProfile: async () => {},
   logout: async () => {},
 });
 
@@ -96,9 +98,16 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     if (response.data.token && response.data.user) await persistAuth(response.data.token, { ...response.data.user, teacherCode: response.data.teacherCode });
   };
 
+  const updateProfile = async (name: string, email: string) => {
+    if (!token) throw new Error('Sessao expirada. Entre novamente.');
+    const response = await api.patch('/auth/me', { name, email });
+    const updatedUser = { ...response.data.user, teacherCode: response.data.teacherCode };
+    await persistAuth(token, updatedUser);
+  };
+
   const logout = async () => {
     await clearAuth();
   };
 
-  return <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token, loading, login, register, updateProfile, logout }}>{children}</AuthContext.Provider>;
 };

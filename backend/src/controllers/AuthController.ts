@@ -115,4 +115,44 @@ export class AuthController {
     }
   }
 
+  static async updateMe(req: AuthRequest, res: Response) {
+    if (!req.user?.id) return res.status(401).json({ message: 'Usuario nao autenticado.' });
+
+    const name = String(req.body?.name || '').trim();
+    const email = String(req.body?.email || '').trim();
+
+    if (name.length < 2) return res.status(400).json({ message: 'Nome deve ter pelo menos 2 caracteres.' });
+    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ message: 'E-mail invalido.' });
+
+    try {
+      const cleanEmail = normalizeEmail(email);
+      const currentUser = await prisma.user.findUnique({ where: { id: req.user.id } });
+      if (!currentUser || !currentUser.active) return res.status(404).json({ message: 'Usuario nao encontrado.' });
+
+      const existingEmailUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
+      if (existingEmailUser && existingEmailUser.id !== req.user.id) {
+        return res.status(400).json({ message: 'E-mail ja registrado.' });
+      }
+
+      const user = await prisma.user.update({
+        where: { id: req.user.id },
+        data: { name, email: cleanEmail },
+      });
+
+      let teacherCode: string | undefined;
+      if (user.profile === 'teacher') {
+        const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } });
+        teacherCode = teacher ? String(teacher.id) : undefined;
+      }
+
+      return res.json({
+        user: { id: user.id, name: user.name, email: user.email, profile: user.profile },
+        teacherCode,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'Erro ao atualizar perfil.' });
+    }
+  }
+
 }
