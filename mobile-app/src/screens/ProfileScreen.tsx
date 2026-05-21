@@ -74,7 +74,35 @@ export default function ProfileScreen() {
   const [notificationStatus, setNotificationStatus] = useState(getNotificationPermission());
   const [savingReminder, setSavingReminder] = useState(false);
 
-  useEffect(() => { setNotificationStatus(getNotificationPermission()); }, []);
+  useEffect(() => {
+  let mounted = true;
+
+  async function loadReminderSettings() {
+    setNotificationStatus(getNotificationPermission());
+
+    try {
+      const { data } = await api.get('/push/settings');
+
+      if (!mounted) return;
+
+      if (typeof data?.reminderTime === 'string' && validTime(data.reminderTime)) {
+        setReminderTime(data.reminderTime);
+      }
+
+      if (typeof data?.reminderEnabled === 'boolean') {
+        setNotificationStatus(getNotificationPermission());
+      }
+    } catch (error) {
+      console.log('[PUSH] Não foi possível carregar configurações do lembrete:', error);
+    }
+  }
+
+  loadReminderSettings();
+
+  return () => {
+    mounted = false;
+  };
+}, []);
 
   const activateReminder = async () => {
     const normalized = normalizeClockOnBlur(reminderTime);
