@@ -76,6 +76,7 @@ function resolveApiUrl() {
 const API_URL = resolveApiUrl();
 const STUDENT_APP_URL = String(import.meta.env.VITE_STUDENT_APP_URL || '').trim();
 const OWNER_TEACHER_ID = Number(import.meta.env.VITE_OWNER_TEACHER_ID || 1);
+const OWNER_EMAILS = String(import.meta.env.VITE_OWNER_EMAILS || 'erosaraujopersonal@gmail.com').split(',').map((email) => email.trim().toLowerCase()).filter(Boolean);
 const api = axios.create({ baseURL: API_URL, timeout: 15000 });
 const EVIDENCE_PHOTO_LABELS: Record<string, string> = {
   person: 'Pessoa',
@@ -430,7 +431,10 @@ function TeacherNav({ alertCount }: { alertCount?: number } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isOwner = user?.profile === 'teacher' && [user.teacherId, user.teacherCode].some((value) => Number(value || 0) === OWNER_TEACHER_ID);
+  const isOwner = user?.profile === 'teacher' && (
+    [user.teacherId, user.teacherCode].some((value) => Number(value || 0) === OWNER_TEACHER_ID) ||
+    OWNER_EMAILS.includes(String(user.email || '').trim().toLowerCase())
+  );
   const items = [
     ['/professor','Dashboard','▦'],
     ['/professor/desafios','Desafios','⚡'],
