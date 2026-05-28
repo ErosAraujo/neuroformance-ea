@@ -9,18 +9,11 @@ import { resetLoginRateLimit } from '../middleware/rateLimitMiddleware';
 
 export class AuthController {
   static async register(req: Request, res: Response) {
-    const { name, email, password, profile, teacherCode, adminSecret } = req.body;
+    const { name, email, password, profile, teacherCode } = req.body;
     const normalizedProfile = normalizeProfile(profile);
 
     try {
       validateRegisterFields(name, email, password, profile, teacherCode);
-      if (normalizedProfile === 'teacher') {
-        const expectedSecret = process.env.ADMIN_CREATE_TEACHER_SECRET;
-        const isProduction = process.env.NODE_ENV === 'production';
-        if ((isProduction || expectedSecret) && String(adminSecret || '') !== String(expectedSecret || '')) {
-          return res.status(403).json({ message: 'Cadastro de professor não autorizado.' });
-        }
-      }
       const cleanEmail = normalizeEmail(email);
       const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
       if (existing) return res.status(400).json({ message: 'E-mail já registrado.' });
@@ -51,7 +44,7 @@ export class AuthController {
       const token = jwt.sign({ id: result.user.id, profile: result.user.profile }, JWT_SECRET, { expiresIn: '7d' });
       return res.status(201).json({
         token,
-        user: { id: result.user.id, name: result.user.name, email: result.user.email, profile: result.user.profile },
+        user: { id: result.user.id, name: result.user.name, email: result.user.email, profile: result.user.profile, studentId: result.student?.id, teacherId: result.teacher?.id },
         teacherCode: result.teacher ? String(result.teacher.id) : undefined,
       });
     } catch (error: any) {
@@ -82,16 +75,22 @@ export class AuthController {
       resetLoginRateLimit(req);
       const token = jwt.sign({ id: user.id, profile: user.profile }, JWT_SECRET, { expiresIn: '7d' });
       let teacherCode: string | undefined;
+      let teacherId: number | undefined;
+      let studentId: number | undefined;
       // Caso o perfil seja professor, também retornamos o ID da tabela teacher para exibir como código.
       if (user.profile === 'teacher') {
         try {
           const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } });
+          teacherId = teacher?.id;
           teacherCode = teacher ? String(teacher.id) : undefined;
         } catch (err) {
           console.error('Erro ao buscar código do professor:', err);
         }
+      } else if (user.profile === 'student') {
+        const student = await prisma.student.findUnique({ where: { userId: user.id }, select: { id: true } });
+        studentId = student?.id;
       }
-      return res.json({ token, user: { id: user.id, name: user.name, email: user.email, profile: user.profile }, teacherCode });
+      return res.json({ token, user: { id: user.id, name: user.name, email: user.email, profile: user.profile, studentId, teacherId }, teacherCode, studentId, teacherId });
     } catch (error) {
       console.error(error);
       return res.status(500).json({ message: 'Erro ao autenticar.' });
@@ -104,11 +103,17 @@ export class AuthController {
       const user = await prisma.user.findUnique({ where: { id: req.user.id } });
       if (!user || !user.active) return res.status(404).json({ message: 'Usuário não encontrado.' });
       let teacherCode: string | undefined;
+      let teacherId: number | undefined;
+      let studentId: number | undefined;
       if (user.profile === 'teacher') {
         const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } });
+        teacherId = teacher?.id;
         teacherCode = teacher ? String(teacher.id) : undefined;
+      } else if (user.profile === 'student') {
+        const student = await prisma.student.findUnique({ where: { userId: user.id }, select: { id: true } });
+        studentId = student?.id;
       }
-      return res.json({ id: user.id, name: user.name, email: user.email, profile: user.profile, teacherCode, user: { id: user.id, name: user.name, email: user.email, profile: user.profile } });
+      return res.json({ id: user.id, name: user.name, email: user.email, profile: user.profile, teacherCode, studentId, teacherId, user: { id: user.id, name: user.name, email: user.email, profile: user.profile, studentId, teacherId } });
     } catch (error) {
       console.error(error);
       return res.status(500).json({ message: 'Erro ao buscar sessão.' });
@@ -140,14 +145,22 @@ export class AuthController {
       });
 
       let teacherCode: string | undefined;
+      let teacherId: number | undefined;
+      let studentId: number | undefined;
       if (user.profile === 'teacher') {
         const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } });
+        teacherId = teacher?.id;
         teacherCode = teacher ? String(teacher.id) : undefined;
+      } else if (user.profile === 'student') {
+        const student = await prisma.student.findUnique({ where: { userId: user.id }, select: { id: true } });
+        studentId = student?.id;
       }
 
       return res.json({
-        user: { id: user.id, name: user.name, email: user.email, profile: user.profile },
+        user: { id: user.id, name: user.name, email: user.email, profile: user.profile, studentId, teacherId },
         teacherCode,
+        studentId,
+        teacherId,
       });
     } catch (error) {
       console.error(error);

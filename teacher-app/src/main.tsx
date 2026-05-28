@@ -6,8 +6,8 @@ import './styles.css';
 
 type Profile = 'student' | 'teacher';
 type User = { id: number; name: string; email: string; profile: Profile; teacherId?: number; studentId?: number; teacherCode?: string; photoUrl?: string; avatarUrl?: string; profilePhoto?: string; imageUrl?: string; picture?: string; photo?: string; avatar?: string };
-type AuthContextType = { user: User | null; token: string | null; loading: boolean; login: (email: string, password: string, remember: boolean) => Promise<void>; registerStudent: (data: RegisterStudentPayload) => Promise<void>; logout: () => void };
-type RegisterStudentPayload = { name: string; email: string; password: string; teacherCode: string };
+type AuthContextType = { user: User | null; token: string | null; loading: boolean; login: (email: string, password: string, remember: boolean) => Promise<void>; registerTeacher: (data: RegisterTeacherPayload) => Promise<void>; logout: () => void };
+type RegisterTeacherPayload = { name: string; email: string; password: string };
 type SleepRecord = { id: number; date: string; sleepTime?: string; wakeTime?: string; sleepStart?: string; sleepEnd?: string; scoreTotal: number; totalHours: number; classification: string; perceivedQuality: number; awakenings: number; morningState?: number; wakeState?: number; energy?: number; mood?: number; stress?: number; generalPain?: number; bodyHeaviness?: number; timeToSleep?: number; sleepLatencyMinutes?: number; nap?: boolean; caffeine?: boolean; alcohol?: boolean; screenBeforeSleep?: boolean; pain?: boolean; notes?: string; scoreDuration?: number; scoreQuality?: number; scoreContinuity?: number; scoreState?: number; scoreRegularity?: number };
 type WeeklySummary = { averageScore?: number; averageHours?: number; averageQuality?: number; averageEnergy?: number; nightsRecorded?: number; goodNights?: number; badNights?: number; regularityAverage?: number; adherence?: number; trend?: string };
 type RecoverySummary = { hasData: boolean; recoveryLevel: string | null; readinessScore: number | null; fatigueRisk: string | null; recoveryScore: number | null; weeklyTrendPercent: number | null; trainingSuggestion?: string };
@@ -179,14 +179,14 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser({ ...data.user, teacherCode: data.teacherCode }); setTokenState(data.token);
   };
 
-  const registerStudent = async (payload: RegisterStudentPayload) => {
-    const { data } = await api.post('/auth/register', { ...payload, profile: 'student' });
+  const registerTeacher = async (payload: RegisterTeacherPayload) => {
+    const { data } = await api.post('/auth/register', { ...payload, profile: 'teacher' });
     clearAuthStorage();
-    localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(data.user));
-    setUser(data.user); setTokenState(data.token);
+    localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify({ ...data.user, teacherCode: data.teacherCode }));
+    setUser({ ...data.user, teacherCode: data.teacherCode }); setTokenState(data.token);
   };
 
-  return <AuthContext.Provider value={{ user, token: tokenState, loading, login, registerStudent, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token: tokenState, loading, login, registerTeacher, logout }}>{children}</AuthContext.Provider>;
 }
 
 function Splash() {
@@ -202,13 +202,12 @@ function Protected({ children, profile }: { children: React.ReactNode; profile: 
 }
 
 function LoginPage() {
-  const { login, registerStudent, user } = useAuth();
+  const { login, registerTeacher, user } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login'|'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [teacherCode, setTeacherCode] = useState('');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -217,7 +216,7 @@ function LoginPage() {
     e.preventDefault(); setBusy(true); setError('');
     try {
       if (mode === 'login') await login(email, password, remember);
-      else await registerStudent({ name, email, password, teacherCode });
+      else await registerTeacher({ name, email, password });
     } catch (err) { setError(messageFromError(err)); }
     finally { setBusy(false); }
   }
@@ -281,12 +280,11 @@ function LoginPage() {
     <form className="teacherEntranceCard" onSubmit={submit}>
       <div className="teacherEntranceTabs"><button type="button" className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Entrar</button><button type="button" className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Criar conta</button></div>
       <div className="teacherEntranceAvatar">♙</div>
-      <h2>{mode === 'login' ? 'Bem-vindo, professor!' : 'Criar conta de aluno'}</h2>
-      <p>{mode === 'login' ? 'Acesse sua conta para continuar.' : 'Cadastre o aluno usando o código do professor.'}</p>
-      {mode==='register' && <label>Nome completo<input value={name} onChange={e=>setName(e.target.value)} required placeholder="Nome do aluno" /></label>}
-      <label>{mode === 'login' ? 'E-mail profissional' : 'E-mail ou nome do aluno'}<input value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" required placeholder={mode === 'login' ? 'seu.email@instituicao.com.br' : 'E-mail ou nome'} /></label>
+      <h2>{mode === 'login' ? 'Bem-vindo, professor!' : 'Criar conta de professor'}</h2>
+      <p>{mode === 'login' ? 'Acesse sua conta para continuar.' : 'Cadastre seu acesso. O código do professor será criado automaticamente.'}</p>
+      {mode==='register' && <label>Nome completo<input value={name} onChange={e=>setName(e.target.value)} required placeholder="Nome do professor" /></label>}
+      <label>{mode === 'login' ? 'E-mail profissional' : 'E-mail profissional'}<input value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" required placeholder={mode === 'login' ? 'seu.email@instituicao.com.br' : 'email@professor.com'} /></label>
       <label>Senha<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete={mode==='login'?'current-password':'new-password'} required placeholder="••••••••••••" /></label>
-      {mode==='register' && <label>Código do professor<input value={teacherCode} onChange={e=>setTeacherCode(e.target.value)} required placeholder="Ex.: 1" /></label>}
       {mode==='login' && <div className="teacherEntranceOptions"><label className="teacherEntranceCheck"><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} /> Lembrar login</label><button type="button" disabled>Esqueci minha senha</button></div>}
       {error && <div className="error">{error}</div>}
       <button className="teacherEntrancePrimary" disabled={busy}>{busy ? 'Processando...' : mode==='login' ? 'Entrar na plataforma' : 'Criar acesso'} <span>→</span></button>
