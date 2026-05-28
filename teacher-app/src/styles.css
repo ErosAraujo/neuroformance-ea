@@ -3507,62 +3507,6 @@ body{background:radial-gradient(circle at 80% 0%,rgba(31,75,155,.24),transparent
     font-size: 11px !important;
   }
 }
-/* Cardio challenges workflow */
-.challengeHero{border-color:rgba(56,189,248,.34)!important;background:linear-gradient(135deg,rgba(8,18,32,.96),rgba(11,24,42,.88))!important}
-.challengeHeroScore{width:150px;height:150px;border-radius:999px;display:grid;place-content:center;text-align:center;border:1px solid rgba(56,189,248,.42);background:radial-gradient(circle,rgba(56,189,248,.20),rgba(8,13,24,.94));box-shadow:0 0 44px rgba(56,189,248,.18)}
-.challengeHeroScore strong{font-size:42px;line-height:1;color:#f8fafc}
-.challengeHeroScore small{color:#93c5fd;font-weight:900;margin-top:6px}
-.challengeFilter{margin:18px 0!important}
-.challengeBoard{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:14px 0}
-.challengeCard{min-width:0;border:1px solid rgba(148,179,216,.22);border-radius:24px;padding:18px;background:linear-gradient(180deg,rgba(14,27,47,.9),rgba(6,12,22,.96));box-shadow:0 20px 58px rgba(0,0,0,.38);display:grid;gap:14px}
-.challengeCardTop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.challengeCard h3{margin:4px 0 0;color:#f8fbff;font-size:20px}
-.challengeDuelLine{min-height:62px;border:1px solid rgba(148,179,216,.16);border-radius:18px;background:rgba(5,10,18,.5);display:grid;grid-template-columns:1fr 48px 1fr;align-items:center;gap:10px;padding:12px;text-align:center}
-.challengeDuelLine strong{min-width:0;color:#f8fbff;font-size:14px}
-.challengeDuelLine span{height:38px;border-radius:999px;display:grid;place-items:center;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.24);color:#bae6fd;font-size:12px;font-weight:900}
-.challengeScoreGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.challengeScoreGrid div{border:1px solid rgba(148,179,216,.16);border-radius:15px;padding:11px;background:rgba(5,10,18,.42)}
-.challengeScoreGrid small{display:block;color:#91a1b8;font-weight:800;font-size:11px}
-.challengeScoreGrid b{display:block;margin-top:5px;color:#f8fbff}
-.challengeStatusCloud{display:flex;flex-wrap:wrap;gap:8px}
-.challengeStatusCloud span{border:1px solid rgba(148,179,216,.18);background:rgba(6,13,25,.72);border-radius:999px;padding:8px 11px;color:#dbeafe;font-size:12px;font-weight:800}
-.challengeCreatePanel{border-color:rgba(56,189,248,.28)!important}
-.challengeFormGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
-.challengeContestRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;border:1px solid rgba(148,179,216,.18);border-radius:18px;padding:14px;background:rgba(5,10,18,.5)}
-.challengeContestRow strong{display:block;color:#f8fbff;font-size:16px}
-.challengeContestRow small,.challengeContestRow em{display:block;color:#9fb0c7;margin-top:4px;font-style:normal}
-.challengeContestRow p{margin:10px 0 0;color:#dbeafe;line-height:1.4}
-.contestEvidenceGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
-.contestEvidencePhoto{min-width:0;margin:0;border:1px solid rgba(148,179,216,.18);border-radius:14px;overflow:hidden;background:rgba(8,15,28,.78)}
-.contestEvidencePhoto img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#020617}
-.contestEvidencePhoto figcaption,.contestEvidenceMissing{color:#9fb0c7;font-size:12px;font-weight:800}
-.contestEvidencePhoto figcaption{padding:8px 10px}
-.contestEvidenceMissing{margin-top:12px;border:1px dashed rgba(148,179,216,.26);border-radius:12px;padding:10px;background:rgba(15,23,42,.42)}
-.contestCorrectionGrid{display:grid;grid-template-columns:repeat(2,minmax(0,170px));gap:10px;margin-top:12px}
-.contestCorrectionGrid label{display:grid;gap:6px;color:#9fb0c7;font-size:12px;font-weight:800}
-.contestCorrectionGrid input{width:100%;height:40px;border-radius:11px;border:1px solid rgba(148,179,216,.22);background:rgba(2,6,23,.74);color:#f8fbff;padding:0 11px;font-weight:900}
-.challengeContestActions{display:grid;gap:8px;min-width:132px}
-.challengeContestActions button{border-radius:12px!important;padding:10px 12px!important}
-.challengeAnalysisModal{width:min(1120px,calc(100vw - 24px))}
-.challengeAnalysisGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.challengeAnalysisPanel{min-width:0;border:1px solid rgba(148,179,216,.18);border-radius:18px;padding:14px;background:rgba(5,10,18,.48)}
-.challengeAnalysisPanel h4{margin:0 0 12px;color:#f8fbff}
-.challengeAnalysisPanel p{margin:0;color:#dbeafe;line-height:1.45}
-.challengeAnalysisFacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.challengeAnalysisFacts span{border:1px solid rgba(148,179,216,.15);border-radius:14px;padding:10px;background:rgba(2,6,23,.46)}
-.challengeAnalysisFacts small{display:block;color:#9fb0c7;font-size:11px;font-weight:800}
-.challengeAnalysisFacts b{display:block;margin-top:5px;color:#f8fbff}
-.challengeAnalysisPhotosPanel{grid-column:1/-1}
-.challengeAnalysisPhotos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.challengeAnalysisPhoto{min-width:0;margin:0;border:1px solid rgba(148,179,216,.18);border-radius:16px;overflow:hidden;background:#020617}
-.challengeAnalysisPhoto img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:#020617}
-.challengeAnalysisPhoto figcaption{padding:9px 11px;color:#9fb0c7;font-size:12px;font-weight:900}
-.challengeTimeline{display:grid;gap:8px;margin-top:14px}
-.challengeTimeline span{border-left:3px solid rgba(56,189,248,.45);padding:7px 10px;color:#9fb0c7;background:rgba(2,6,23,.36);border-radius:8px}
-.challengeAnalysisActions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-top:16px}
-.challengeAnalysisActions button{min-width:150px}
-@media(max-width:1100px){.challengeBoard{grid-template-columns:1fr 1fr}.challengeHeroScore{width:120px;height:120px}.challengeHeroScore strong{font-size:34px}.challengeAnalysisGrid{grid-template-columns:1fr}}
-@media(max-width:760px){.challengeBoard,.challengeFormGrid,.contestEvidenceGrid,.contestCorrectionGrid,.challengeAnalysisFacts,.challengeAnalysisPhotos{grid-template-columns:1fr}.challengeContestRow{grid-template-columns:1fr}.challengeHeroScore{width:100%;height:104px;border-radius:22px}.challengeAnalysisActions{display:grid}.challengeAnalysisActions button{width:100%}}
 
 /* Dashboard do criador - professores */
 .ownerSummaryGrid{margin-bottom:18px}.ownerControlPanel{display:grid;gap:16px;margin-bottom:18px}.ownerControlPanel .search{width:100%;max-width:520px}.ownerRankingGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:18px}.ownerRankingCard{display:grid;gap:14px}.ownerRankingRow{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;text-align:left;border:1px solid rgba(148,179,216,.16);background:rgba(5,10,18,.44);border-radius:16px;padding:12px 14px;color:#e5edf8;cursor:pointer}.ownerRankingRow:hover{border-color:rgba(125,177,255,.42);transform:translateY(-1px)}.ownerRankingRow span,.ownerStatus{border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;text-transform:uppercase}.ownerRankingRow span.good,.ownerStatus.good{background:rgba(34,197,94,.16);color:#86efac}.ownerRankingRow span.warn,.ownerStatus.warn{background:rgba(234,179,8,.16);color:#fde68a}.ownerRankingRow span.danger,.ownerStatus.danger{background:rgba(239,68,68,.16);color:#fecaca}.ownerRankingRow span.neutral,.ownerStatus.neutral{background:rgba(148,163,184,.14);color:#cbd5e1}.ownerRankingRow small{display:block;margin-top:4px;color:#94a3b8}.ownerRankingRow b{font-size:20px}.ownerTeacherGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.ownerTeacherCard{position:relative;display:grid;gap:16px;padding:20px;border-radius:26px;background:linear-gradient(180deg,rgba(18,29,46,.88),rgba(8,13,22,.96));border:1px solid rgba(148,179,216,.2);box-shadow:0 22px 70px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.08);overflow:hidden}.ownerTeacherCard:before{content:"";position:absolute;inset:-70px -60px auto auto;width:160px;height:160px;border-radius:999px;background:rgba(125,177,255,.13);filter:blur(28px)}.ownerTeacherCard.good:before{background:rgba(34,197,94,.16)}.ownerTeacherCard.warn:before{background:rgba(234,179,8,.16)}.ownerTeacherCard.danger:before{background:rgba(239,68,68,.18)}.ownerTeacherTop,.ownerTeacherIdentity,.ownerMetricGrid,.ownerTeacherFooter{position:relative}.ownerTeacherTop{display:flex;align-items:center;justify-content:space-between;gap:12px}.ownerTeacherIdentity h3{margin:0;color:#f8fbff;font-size:22px;line-height:1.2}.ownerTeacherIdentity p{margin:6px 0 0;color:#9fb0c7;font-size:13px;word-break:break-word}.ownerMetricGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ownerMetricGrid span,.ownerModalMetrics span{border:1px solid rgba(148,179,216,.15);background:rgba(5,10,18,.46);border-radius:15px;padding:11px}.ownerMetricGrid small,.ownerModalMetrics small{display:block;color:#8ea0bb;font-size:11px;font-weight:800}.ownerMetricGrid b,.ownerModalMetrics b{display:block;margin-top:5px;color:#f8fbff;font-size:15px}.ownerTeacherFooter{margin-top:auto;display:grid;gap:12px}.ownerTeacherFooter span{color:#9fb0c7;font-size:12px}.ownerTeacherFooter button{width:100%}.ownerTeacherModal{display:grid;gap:18px}.ownerModalMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.ownerModalColumns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.ownerModalColumns h4{margin:0 0 10px;color:#f8fbff}.ownerHighlightRow{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;border:1px solid rgba(148,179,216,.14);background:rgba(5,10,18,.42);border-radius:14px;padding:10px 12px;margin-bottom:8px}.ownerHighlightRow strong{display:block;color:#f8fbff}.ownerHighlightRow small{display:block;margin-top:3px;color:#94a3b8}.ownerHighlightRow b{border-radius:999px;background:rgba(148,163,184,.12);padding:7px 9px;color:#e5edf8}@media(max-width:1180px){.ownerTeacherGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.ownerModalColumns{grid-template-columns:1fr}.ownerModalMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:780px){.ownerRankingGrid,.ownerTeacherGrid{grid-template-columns:1fr}.ownerRankingRow{grid-template-columns:1fr}.ownerModalMetrics{grid-template-columns:1fr}}

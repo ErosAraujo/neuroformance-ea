@@ -12,6 +12,7 @@ import observationRoutes from './routes/observationRoutes';
 import teacherRoutes from './routes/teacherRoutes';
 import indicatorRoutes from './routes/indicatorRoutes';
 import pushRoutes from './routes/pushRoutes';
+import ownerDashboardRoutes from './routes/ownerDashboardRoutes';
 import { PushController } from './controllers/PushController';
 import { authMiddleware } from './middleware/authMiddleware';
 import { globalRateLimit, loginRateLimit } from './middleware/rateLimitMiddleware';
@@ -31,7 +32,7 @@ app.use((_req, res, next) => {
 });
 
 app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin.split(',').map((item) => item.trim()), credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '10mb' }));
 app.use(globalRateLimit);
 app.use('/api/auth/login', loginRateLimit);
 app.post('/api/push/cron/run-due-reminders', PushController.runDueRemindersCron);
@@ -62,6 +63,7 @@ app.use('/api/sleep-goals', sleepGoalRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/student/insights', insightsRoutes);
 app.use('/api/observations', observationRoutes);
+app.use('/api/owner', ownerDashboardRoutes);
 app.use('/api/teacher', teacherRoutes);
 // Nova rota para indicadores diários
 app.use('/api/indicators', indicatorRoutes);

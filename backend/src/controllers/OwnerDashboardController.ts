@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../models/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { getTeacherIdByUserId } from '../services/identityService';
-import { buildOwnerTeachersDashboard, OwnerChallengeMetrics } from '../services/ownerDashboardService';
+import { buildOwnerTeachersDashboard } from '../services/ownerDashboardService';
 
 const OWNER_TEACHER_ID = Number(process.env.OWNER_TEACHER_ID || 1);
 
@@ -13,37 +13,6 @@ async function assertOwnerAccess(req: AuthRequest) {
   const teacherId = await getTeacherIdByUserId(req.user.id);
   if (teacherId !== OWNER_TEACHER_ID) throw new Error('Acesso restrito ao criador.');
   return { profile: 'teacher' as const, teacherId };
-}
-
-function emptyMetrics(): Required<OwnerChallengeMetrics> {
-  return {
-    totalChallenges: 0,
-    activeChallenges: 0,
-    pendingChallenges: 0,
-    finishedChallenges: 0,
-    cancelledChallenges: 0,
-    contestedSessions: 0,
-    validSessions: 0,
-  };
-}
-
-type ChallengeMetricBucket = 'activeChallenges' | 'pendingChallenges' | 'finishedChallenges' | 'cancelledChallenges';
-
-function challengeStatusBucket(status?: string | null): ChallengeMetricBucket | null {
-  const value = String(status || '').toLowerCase();
-  if (['ativo', 'aceito'].includes(value)) return 'activeChallenges';
-  if (['pendente', 'aguardando_validacoes'].includes(value)) return 'pendingChallenges';
-  if (['finalizado', 'finalizado_com_vencedor', 'empate'].includes(value)) return 'finishedChallenges';
-  if (['cancelado', 'recusado', 'expirado'].includes(value)) return 'cancelledChallenges';
-  return null;
-}
-
-function sessionIsContested(status?: string | null) {
-  return ['contestado', 'em_analise_professor'].includes(String(status || '').toLowerCase());
-}
-
-function sessionIsValid(status?: string | null) {
-  return ['validado', 'aprovado_professor', 'corrigido_professor'].includes(String(status || '').toLowerCase());
 }
 
 export class OwnerDashboardController {
@@ -112,42 +81,6 @@ export class OwnerDashboardController {
         orderBy: { id: 'asc' },
       });
 
-      const studentTeacherPairs = teachers.flatMap((teacher) => teacher.students.map((student) => ({ teacherId: teacher.id, studentId: student.id })));
-      const teacherByStudentId = new Map<number, number>(studentTeacherPairs.map((item) => [Number(item.studentId), Number(item.teacherId)]));
-      const studentIds = studentTeacherPairs.map((item) => item.studentId);
-      const challengeMetricsByTeacherId: Record<number, Required<OwnerChallengeMetrics>> = {};
-      teachers.forEach((teacher) => { challengeMetricsByTeacherId[teacher.id] = emptyMetrics(); });
-
-      if (studentIds.length) {
-        const challenges = await prisma.challenge.findMany({
-          where: { participants: { some: { studentId: { in: studentIds } } } },
-          include: {
-            participants: { select: { studentId: true } },
-            sessions: { select: { id: true, studentId: true, status: true } },
-          },
-        });
-
-        for (const challenge of challenges) {
-          const teacherIds = new Set<number>();
-          challenge.participants.forEach((participant) => {
-            const teacherId = teacherByStudentId.get(participant.studentId);
-            if (teacherId) teacherIds.add(teacherId);
-          });
-          teacherIds.forEach((teacherId) => {
-            const metrics = challengeMetricsByTeacherId[teacherId] || emptyMetrics();
-            metrics.totalChallenges += 1;
-            const bucket = challengeStatusBucket(challenge.status);
-            if (bucket) metrics[bucket] += 1;
-            challenge.sessions.forEach((session) => {
-              if (teacherByStudentId.get(session.studentId) !== teacherId) return;
-              if (sessionIsContested(session.status)) metrics.contestedSessions += 1;
-              if (sessionIsValid(session.status)) metrics.validSessions += 1;
-            });
-            challengeMetricsByTeacherId[teacherId] = metrics;
-          });
-        }
-      }
-
       const normalizedTeachers = teachers.map((teacher) => ({
         ...teacher,
         students: teacher.students.map((student) => ({
@@ -159,7 +92,7 @@ export class OwnerDashboardController {
       return res.json({
         access,
         ownerTeacherId: OWNER_TEACHER_ID,
-        ...buildOwnerTeachersDashboard(normalizedTeachers, challengeMetricsByTeacherId),
+        ...buildOwnerTeachersDashboard(normalizedTeachers),
       });
     } catch (error: any) {
       const status = error.message === 'Acesso restrito ao criador.' ? 403 : 500;

@@ -68,20 +68,8 @@ async function deleteUserStudentByEmail(email: string) {
 async function cleanupLegacyDemoData() {
   for (const email of LEGACY_DEMO_EMAILS) await deleteUserStudentByEmail(email);
 
-  const demoProfessor = await prisma.user.findUnique({
-    where: { email: 'professor@exemplo.com' },
-    include: { teacher: true },
-  });
-
-  if (demoProfessor?.teacher) {
-    await prisma.observation.deleteMany({ where: { teacherId: demoProfessor.teacher.id } });
-    await prisma.student.updateMany({ where: { teacherId: demoProfessor.teacher.id }, data: { teacherId: 1 } });
-    await prisma.teacher.delete({ where: { id: demoProfessor.teacher.id } });
-  }
-
-  if (demoProfessor) {
-    await prisma.pushSubscription.deleteMany({ where: { userId: demoProfessor.id } });
-    await prisma.user.delete({ where: { id: demoProfessor.id } });
+  if (String(TEACHER_SEED.email).trim().toLowerCase() !== 'professor@exemplo.com') {
+    await prisma.user.updateMany({ where: { email: 'professor@exemplo.com', teacher: null }, data: { active: false } });
   }
 }
 
@@ -286,6 +274,7 @@ async function ensureDemoRecords(_studentName: string, studentId: number) {
 async function main() {
   await cleanupLegacyDemoData();
   const teacher = await ensureTeacher();
+  await cleanupLegacyDemoData();
 
   for (const studentSeed of STUDENT_SEED) {
     const student = await ensureStudent(studentSeed, teacher.id);
@@ -307,3 +296,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+

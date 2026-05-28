@@ -7,16 +7,6 @@ import {
   safeScore,
 } from './teacherDashboardService';
 
-export interface OwnerChallengeMetrics {
-  totalChallenges?: number;
-  activeChallenges?: number;
-  pendingChallenges?: number;
-  finishedChallenges?: number;
-  cancelledChallenges?: number;
-  contestedSessions?: number;
-  validSessions?: number;
-}
-
 export interface OwnerTeacherInput {
   id: number;
   userId?: number | null;
@@ -57,7 +47,6 @@ export interface OwnerTeacherMetric {
   studentsWithoutRecords: number;
   averageReadiness: number | null;
   recordsLast7Days: number;
-  challengeMetrics: Required<OwnerChallengeMetrics>;
   attentionScore: number;
   operationalStatus: 'sem_alunos' | 'estavel' | 'atencao' | 'critico';
   lastActivityAt: string | null;
@@ -66,6 +55,15 @@ export interface OwnerTeacherMetric {
     lowAdherence: { id: number | string; name: string; email: string; recordsLast7Days: number }[];
     withoutRecords: { id: number | string; name: string; email: string }[];
   };
+  students: {
+    id: number | string;
+    name: string;
+    email: string;
+    status: string;
+    latestRecordDate: string | null;
+    averageScore: number | null;
+    recordsLast7Days: number;
+  }[];
 }
 
 function toIso(value: unknown): string | null {
@@ -83,18 +81,6 @@ function studentStatus(student: OwnerStudentInput) {
   if (status === 'archived' || status === 'deleted') return status;
   if ((student as any).active === false) return 'archived';
   return 'active';
-}
-
-function teacherChallengeMetrics(metrics?: OwnerChallengeMetrics): Required<OwnerChallengeMetrics> {
-  return {
-    totalChallenges: metrics?.totalChallenges ?? 0,
-    activeChallenges: metrics?.activeChallenges ?? 0,
-    pendingChallenges: metrics?.pendingChallenges ?? 0,
-    finishedChallenges: metrics?.finishedChallenges ?? 0,
-    cancelledChallenges: metrics?.cancelledChallenges ?? 0,
-    contestedSessions: metrics?.contestedSessions ?? 0,
-    validSessions: metrics?.validSessions ?? 0,
-  };
 }
 
 function round(value: number, decimals = 1) {
@@ -158,18 +144,32 @@ function buildStudentHighlights(students: NonNullable<OwnerTeacherInput['student
   return { risk, lowAdherence, withoutRecords };
 }
 
-function operationalStatus(metric: Pick<OwnerTeacherMetric, 'activeStudents' | 'riskStudents' | 'lowAdherenceStudents' | 'studentsWithAlerts' | 'challengeMetrics'>): OwnerTeacherMetric['operationalStatus'] {
+function buildTeacherStudents(students: NonNullable<OwnerTeacherInput['students']>, reference: Date) {
+  return students.map((student) => {
+    const records = student.sleepRecords || [];
+    const latest = getLastValidRecords(records, 1)[0] || records[0];
+    const averageScore = averageScores(getLastValidRecords(records, 3));
+    return {
+      ...studentIdentity(student),
+      status: studentStatus(student),
+      latestRecordDate: toIso(latest?.date || latest?.createdAt),
+      averageScore: averageScore ?? null,
+      recordsLast7Days: getRecordsLastDays(records, 7, reference).length,
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function operationalStatus(metric: Pick<OwnerTeacherMetric, 'activeStudents' | 'riskStudents' | 'lowAdherenceStudents' | 'studentsWithAlerts'>): OwnerTeacherMetric['operationalStatus'] {
   if (!metric.activeStudents) return 'sem_alunos';
   const riskRatio = metric.riskStudents / metric.activeStudents;
   const adherenceRatio = metric.lowAdherenceStudents / metric.activeStudents;
-  if (metric.challengeMetrics.contestedSessions > 0 || riskRatio >= 0.35) return 'critico';
+  if (riskRatio >= 0.35) return 'critico';
   if (metric.studentsWithAlerts > 0 || adherenceRatio >= 0.35) return 'atencao';
   return 'estavel';
 }
 
 export function buildOwnerTeachersDashboard(
   teachers: OwnerTeacherInput[],
-  challengeMetricsByTeacherId: Record<number, OwnerChallengeMetrics> = {},
   reference = new Date(),
 ) {
   const teacherMetrics: OwnerTeacherMetric[] = teachers.map((teacher) => {
@@ -179,7 +179,6 @@ export function buildOwnerTeachersDashboard(
     const deletedStudents = students.filter((student) => studentStatus(student) === 'deleted');
     const dashboardSummary = buildTeacherDashboardSummary(activeStudents, reference);
     const recordsLast7Days = activeStudents.reduce((sum, student) => sum + getRecordsLastDays(student.sleepRecords || [], 7, reference).length, 0);
-    const challengeMetrics = teacherChallengeMetrics(challengeMetricsByTeacherId[teacher.id]);
     const baseMetric = {
       teacherId: teacher.id,
       userId: teacher.userId ?? teacher.user?.id ?? null,
@@ -201,11 +200,11 @@ export function buildOwnerTeachersDashboard(
       studentsWithoutRecords: activeStudents.filter((student) => !(student.sleepRecords || []).length).length,
       averageReadiness: averageReadiness(dashboardSummary.students),
       recordsLast7Days,
-      challengeMetrics,
-      attentionScore: dashboardSummary.riskStudents + dashboardSummary.lowAdherenceStudents + dashboardSummary.studentsWithAlerts + challengeMetrics.contestedSessions,
+      attentionScore: dashboardSummary.riskStudents + dashboardSummary.lowAdherenceStudents + dashboardSummary.studentsWithAlerts,
       operationalStatus: 'estavel' as OwnerTeacherMetric['operationalStatus'],
       lastActivityAt: latestStudentActivity(students),
       studentHighlights: buildStudentHighlights(students, reference),
+      students: buildTeacherStudents(students, reference),
     };
     return {
       ...baseMetric,
@@ -215,7 +214,6 @@ export function buildOwnerTeachersDashboard(
 
   const activeTeachers = teacherMetrics.filter((teacher) => teacher.active);
   const totalActiveStudents = teacherMetrics.reduce((sum, teacher) => sum + teacher.activeStudents, 0);
-  const totalChallenges = teacherMetrics.reduce((sum, teacher) => sum + teacher.challengeMetrics.totalChallenges, 0);
 
   return {
     generatedAt: reference.toISOString(),
@@ -234,17 +232,10 @@ export function buildOwnerTeachersDashboard(
       studentsWithAlerts: teacherMetrics.reduce((sum, teacher) => sum + teacher.studentsWithAlerts, 0),
       totalActiveAlerts: teacherMetrics.reduce((sum, teacher) => sum + teacher.totalActiveAlerts, 0),
       averageStudentsPerTeacher: teacherMetrics.length ? round(totalActiveStudents / teacherMetrics.length, 1) : 0,
-      totalChallenges,
-      activeChallenges: teacherMetrics.reduce((sum, teacher) => sum + teacher.challengeMetrics.activeChallenges, 0),
-      pendingChallenges: teacherMetrics.reduce((sum, teacher) => sum + teacher.challengeMetrics.pendingChallenges, 0),
-      finishedChallenges: teacherMetrics.reduce((sum, teacher) => sum + teacher.challengeMetrics.finishedChallenges, 0),
-      contestedSessions: teacherMetrics.reduce((sum, teacher) => sum + teacher.challengeMetrics.contestedSessions, 0),
-      validSessions: teacherMetrics.reduce((sum, teacher) => sum + teacher.challengeMetrics.validSessions, 0),
     },
     rankings: {
       byStudents: [...teacherMetrics].sort((a, b) => b.activeStudents - a.activeStudents).slice(0, 5),
       byAttention: [...teacherMetrics].sort((a, b) => b.attentionScore - a.attentionScore).slice(0, 5),
-      byChallengeActivity: [...teacherMetrics].sort((a, b) => b.challengeMetrics.totalChallenges - a.challengeMetrics.totalChallenges).slice(0, 5),
     },
     teachers: teacherMetrics,
   };
