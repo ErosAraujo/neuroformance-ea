@@ -7,7 +7,16 @@ export interface User {
   name: string;
   email: string;
   profile: 'student' | 'teacher';
+  studentId?: number;
+  teacherId?: number;
   teacherCode?: string;
+  photoUrl?: string;
+  avatarUrl?: string;
+  profilePhoto?: string;
+  imageUrl?: string;
+  picture?: string;
+  photo?: string;
+  avatar?: string;
 }
 
 interface AuthContextProps {
@@ -16,7 +25,7 @@ interface AuthContextProps {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, teacherCode: string) => Promise<void>;
-  updateProfile: (name: string, email: string) => Promise<void>;
+  updateProfile: (name: string, email: string, photoUrl?: string | null) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -98,9 +107,11 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     if (response.data.token && response.data.user) await persistAuth(response.data.token, { ...response.data.user, teacherCode: response.data.teacherCode });
   };
 
-  const updateProfile = async (name: string, email: string) => {
+  const updateProfile = async (name: string, email: string, photoUrl?: string | null) => {
     if (!token) throw new Error('Sessao expirada. Entre novamente.');
-    const response = await api.patch('/auth/me', { name, email });
+    const payload: { name: string; email: string; photoUrl?: string | null } = { name, email };
+    if (photoUrl !== undefined) payload.photoUrl = photoUrl;
+    const response = await api.patch('/auth/me', payload);
     const updatedUser = { ...response.data.user, teacherCode: response.data.teacherCode };
     await persistAuth(token, updatedUser);
   };

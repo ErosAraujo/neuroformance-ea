@@ -5,6 +5,7 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
+  engineType = "client"
 }
 
 model User {
@@ -13,6 +14,7 @@ model User {
   email     String   @unique
   password  String
   profile   String
+  photoUrl  String?
   createdAt DateTime @default(now())
   active    Boolean  @default(true)
   student   Student?
@@ -35,6 +37,15 @@ model Student {
   alerts       Alert[]
   observations Observation[]
   pushSubscriptions PushSubscription[]
+  createdChallenges Challenge[] @relation("ChallengeCreator")
+  opponentChallenges Challenge[] @relation("ChallengeOpponent")
+  wonChallenges Challenge[] @relation("ChallengeWinner")
+  challengeParticipants ChallengeParticipant[]
+  cardioSessions CardioSession[]
+  contestedValidations SessionValidation[] @relation("ContestStudent")
+  categoryProgress CategoryProgress[]
+  studentBadges StudentBadge[]
+  notifications Notification[]
 
   /// Status do aluno: active (ativo), archived (arquivado) ou deleted (deletado).
   status        StudentStatus @default(active)
@@ -85,6 +96,213 @@ model Teacher {
   userId       Int           @unique
   students     Student[]
   observations Observation[]
+  createdChallenges Challenge[]
+  decidedValidations SessionValidation[]
+}
+
+model ChallengeCategory {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  name        String
+  title       String?
+  shortPhrase String?
+  description String?
+  centralRule String?
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  challenges Challenge[]
+  cardioSessions CardioSession[]
+  categoryProgress CategoryProgress[]
+  badges Badge[]
+  studentBadges StudentBadge[]
+}
+
+model Challenge {
+  id                 Int       @id @default(autoincrement())
+  category           ChallengeCategory @relation(fields: [categoryId], references: [id])
+  categoryId         Int
+  creatorStudent     Student?  @relation("ChallengeCreator", fields: [creatorStudentId], references: [id])
+  creatorStudentId   Int?
+  opponentStudent    Student   @relation("ChallengeOpponent", fields: [opponentStudentId], references: [id])
+  opponentStudentId  Int
+  createdByTeacher   Teacher?  @relation(fields: [createdByTeacherId], references: [id])
+  createdByTeacherId Int?
+  status             String
+  durationDays       Int?
+  startDate          DateTime?
+  endDate            DateTime?
+  winnerStudent      Student?  @relation("ChallengeWinner", fields: [winnerStudentId], references: [id])
+  winnerStudentId    Int?
+  isDraw             Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  acceptedAt         DateTime?
+  finishedAt         DateTime?
+  cancelledAt        DateTime?
+
+  participants ChallengeParticipant[]
+  sessions CardioSession[]
+  notifications Notification[]
+
+  @@index([categoryId])
+  @@index([creatorStudentId])
+  @@index([opponentStudentId])
+  @@index([createdByTeacherId])
+  @@index([status, endDate])
+}
+
+model ChallengeParticipant {
+  id                          Int      @id @default(autoincrement())
+  challenge                   Challenge @relation(fields: [challengeId], references: [id])
+  challengeId                 Int
+  student                     Student   @relation(fields: [studentId], references: [id])
+  studentId                   Int
+  categoryLevel               Int      @default(0)
+  categoryWinsBeforeChallenge Int      @default(0)
+  categoryWinsAfterChallenge  Int?
+  totalDistanceKm             Float    @default(0)
+  totalSessions               Int      @default(0)
+  totalDurationMinutes        Float    @default(0)
+  totalCalories               Float    @default(0)
+  totalElevationMeters        Float    @default(0)
+  averagePace                 Float?
+  position                    Int?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@unique([challengeId, studentId])
+  @@index([studentId])
+}
+
+model CardioSession {
+  id                 Int      @id @default(autoincrement())
+  challenge          Challenge @relation(fields: [challengeId], references: [id])
+  challengeId        Int
+  student            Student   @relation(fields: [studentId], references: [id])
+  studentId          Int
+  category           ChallengeCategory @relation(fields: [categoryId], references: [id])
+  categoryId         Int
+  modality           String
+  durationMinutes    Float
+  distanceKm         Float?
+  calories           Float?
+  elevationMeters    Float?
+  pace               Float?
+  photoUrl           String?
+  photoEvidence      Json?
+  source             String
+  registeredAt       DateTime @default(now())
+  isValidForScore    Boolean  @default(false)
+  status             String
+  invalidReason      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  validation SessionValidation?
+
+  @@index([challengeId, studentId, registeredAt])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model SessionValidation {
+  id                       Int      @id @default(autoincrement())
+  session                  CardioSession @relation(fields: [sessionId], references: [id])
+  sessionId                Int      @unique
+  challengerApprovalStatus String?
+  opponentApprovalStatus   String?
+  contestedByStudent       Student? @relation("ContestStudent", fields: [contestedByStudentId], references: [id])
+  contestedByStudentId     Int?
+  contestReason            String?
+  professorDecision        String?
+  professor                Teacher? @relation(fields: [professorId], references: [id])
+  professorId              Int?
+  correctedDistanceKm      Float?
+  correctedDurationMinutes Float?
+  correctedCalories        Float?
+  correctedElevationMeters Float?
+  decidedAt                DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([contestedByStudentId])
+  @@index([professorId])
+  @@index([professorDecision])
+}
+
+model CategoryProgress {
+  id                   Int      @id @default(autoincrement())
+  student              Student  @relation(fields: [studentId], references: [id])
+  studentId            Int
+  category             ChallengeCategory @relation(fields: [categoryId], references: [id])
+  categoryId           Int
+  wins                 Int      @default(0)
+  losses               Int      @default(0)
+  draws                Int      @default(0)
+  currentLevel         Int      @default(0)
+  currentLevelName     String   @default("Desafiante")
+  totalDistanceKm      Float    @default(0)
+  totalSessions        Int      @default(0)
+  totalDurationMinutes Float    @default(0)
+  totalCalories        Float    @default(0)
+  totalElevationMeters Float    @default(0)
+  bestResult           String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([studentId, categoryId])
+  @@index([categoryId])
+}
+
+model Badge {
+  id             Int      @id @default(autoincrement())
+  category       ChallengeCategory @relation(fields: [categoryId], references: [id])
+  categoryId     Int
+  type           String
+  name           String
+  description    String
+  unlockCriteria String
+  imagePrompt    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  studentBadges StudentBadge[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId, type])
+}
+
+model StudentBadge {
+  id                 Int      @id @default(autoincrement())
+  student            Student  @relation(fields: [studentId], references: [id])
+  studentId          Int
+  badge              Badge    @relation(fields: [badgeId], references: [id])
+  badgeId            Int
+  category           ChallengeCategory @relation(fields: [categoryId], references: [id])
+  categoryId         Int
+  unlockedAt         DateTime @default(now())
+  relatedChallengeId Int?
+  createdAt          DateTime @default(now())
+
+  @@unique([studentId, badgeId])
+  @@index([studentId, categoryId])
+}
+
+model Notification {
+  id                 Int      @id @default(autoincrement())
+  student            Student  @relation(fields: [studentId], references: [id])
+  studentId          Int
+  title              String
+  message            String
+  type               String
+  read               Boolean  @default(false)
+  relatedChallenge   Challenge? @relation(fields: [relatedChallengeId], references: [id])
+  relatedChallengeId Int?
+  createdAt          DateTime @default(now())
+
+  @@index([studentId, read])
+  @@index([relatedChallengeId])
 }
 
 model SleepRecord {

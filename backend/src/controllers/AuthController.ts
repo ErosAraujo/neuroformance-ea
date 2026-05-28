@@ -7,6 +7,30 @@ import { normalizeEmail, normalizeProfile, validateRegisterFields } from '../val
 import { AuthRequest } from '../middleware/authMiddleware';
 import { resetLoginRateLimit } from '../middleware/rateLimitMiddleware';
 
+const MAX_PROFILE_PHOTO_LENGTH = 2_500_000;
+
+function normalizeProfilePhoto(value: unknown) {
+  if (value === undefined) return undefined;
+  const photoUrl = String(value || '').trim();
+  if (!photoUrl) return null;
+  if (photoUrl.length > MAX_PROFILE_PHOTO_LENGTH) throw new Error('Foto muito grande. Use uma imagem menor.');
+  if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(photoUrl) && !/^https?:\/\//i.test(photoUrl)) {
+    throw new Error('Formato de foto invalido. Use PNG, JPG ou WEBP.');
+  }
+  return photoUrl;
+}
+
+function publicUser(user: any, extras: { studentId?: number; teacherId?: number } = {}) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    profile: user.profile,
+    photoUrl: user.photoUrl || undefined,
+    ...extras,
+  };
+}
+
 export class AuthController {
   static async register(req: Request, res: Response) {
     const { name, email, password, profile, teacherCode } = req.body;
@@ -44,7 +68,7 @@ export class AuthController {
       const token = jwt.sign({ id: result.user.id, profile: result.user.profile }, JWT_SECRET, { expiresIn: '7d' });
       return res.status(201).json({
         token,
-        user: { id: result.user.id, name: result.user.name, email: result.user.email, profile: result.user.profile, studentId: result.student?.id, teacherId: result.teacher?.id },
+        user: publicUser(result.user, { studentId: result.student?.id, teacherId: result.teacher?.id }),
         teacherCode: result.teacher ? String(result.teacher.id) : undefined,
       });
     } catch (error: any) {
@@ -90,7 +114,7 @@ export class AuthController {
         const student = await prisma.student.findUnique({ where: { userId: user.id }, select: { id: true } });
         studentId = student?.id;
       }
-      return res.json({ token, user: { id: user.id, name: user.name, email: user.email, profile: user.profile, studentId, teacherId }, teacherCode, studentId, teacherId });
+      return res.json({ token, user: publicUser(user, { studentId, teacherId }), teacherCode, studentId, teacherId });
     } catch (error) {
       console.error(error);
       return res.status(500).json({ message: 'Erro ao autenticar.' });
@@ -113,7 +137,7 @@ export class AuthController {
         const student = await prisma.student.findUnique({ where: { userId: user.id }, select: { id: true } });
         studentId = student?.id;
       }
-      return res.json({ id: user.id, name: user.name, email: user.email, profile: user.profile, teacherCode, studentId, teacherId, user: { id: user.id, name: user.name, email: user.email, profile: user.profile, studentId, teacherId } });
+      return res.json({ ...publicUser(user, { studentId, teacherId }), teacherCode, user: publicUser(user, { studentId, teacherId }) });
     } catch (error) {
       console.error(error);
       return res.status(500).json({ message: 'Erro ao buscar sessão.' });
@@ -130,6 +154,7 @@ export class AuthController {
     if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ message: 'E-mail invalido.' });
 
     try {
+      const photoUrl = normalizeProfilePhoto(req.body?.photoUrl);
       const cleanEmail = normalizeEmail(email);
       const currentUser = await prisma.user.findUnique({ where: { id: req.user.id } });
       if (!currentUser || !currentUser.active) return res.status(404).json({ message: 'Usuario nao encontrado.' });
@@ -141,7 +166,7 @@ export class AuthController {
 
       const user = await prisma.user.update({
         where: { id: req.user.id },
-        data: { name, email: cleanEmail },
+        data: { name, email: cleanEmail, ...(photoUrl !== undefined ? { photoUrl } : {}) },
       });
 
       let teacherCode: string | undefined;
@@ -157,7 +182,7 @@ export class AuthController {
       }
 
       return res.json({
-        user: { id: user.id, name: user.name, email: user.email, profile: user.profile, studentId, teacherId },
+        user: publicUser(user, { studentId, teacherId }),
         teacherCode,
         studentId,
         teacherId,

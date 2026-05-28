@@ -14,6 +14,7 @@ export interface OwnerTeacherInput {
     id?: number;
     name?: string | null;
     email?: string | null;
+    photoUrl?: string | null;
     active?: boolean | null;
     createdAt?: Date | string | null;
   } | null;
@@ -31,6 +32,7 @@ export interface OwnerTeacherMetric {
   userId: number | null;
   name: string;
   email: string;
+  photoUrl?: string | null;
   active: boolean;
   createdAt: string | null;
   teacherCode: string;
@@ -51,14 +53,15 @@ export interface OwnerTeacherMetric {
   operationalStatus: 'sem_alunos' | 'estavel' | 'atencao' | 'critico';
   lastActivityAt: string | null;
   studentHighlights: {
-    risk: { id: number | string; name: string; email: string; score: number | null }[];
-    lowAdherence: { id: number | string; name: string; email: string; recordsLast7Days: number }[];
-    withoutRecords: { id: number | string; name: string; email: string }[];
+    risk: { id: number | string; name: string; email: string; photoUrl?: string | null; score: number | null }[];
+    lowAdherence: { id: number | string; name: string; email: string; photoUrl?: string | null; recordsLast7Days: number }[];
+    withoutRecords: { id: number | string; name: string; email: string; photoUrl?: string | null }[];
   };
   students: {
     id: number | string;
     name: string;
     email: string;
+    photoUrl?: string | null;
     status: string;
     latestRecordDate: string | null;
     averageScore: number | null;
@@ -113,6 +116,7 @@ function studentIdentity(student: any) {
     id: student.id,
     name: student.user?.name || student.name || '',
     email: student.user?.email || student.email || '',
+    photoUrl: student.user?.photoUrl || student.photoUrl || null,
   };
 }
 
@@ -184,6 +188,7 @@ export function buildOwnerTeachersDashboard(
       userId: teacher.userId ?? teacher.user?.id ?? null,
       name: teacher.user?.name || `Professor ${teacher.id}`,
       email: teacher.user?.email || '',
+      photoUrl: teacher.user?.photoUrl || null,
       active: teacher.user?.active !== false,
       createdAt: toIso(teacher.user?.createdAt),
       teacherCode: String(teacher.id),

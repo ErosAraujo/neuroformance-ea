@@ -6,7 +6,7 @@ import './styles.css';
 
 type Profile = 'student' | 'teacher';
 type User = { id: number; name: string; email: string; profile: Profile; teacherId?: number; studentId?: number; teacherCode?: string; photoUrl?: string; avatarUrl?: string; profilePhoto?: string; imageUrl?: string; picture?: string; photo?: string; avatar?: string };
-type AuthContextType = { user: User | null; token: string | null; loading: boolean; login: (email: string, password: string, remember: boolean) => Promise<void>; registerTeacher: (data: RegisterTeacherPayload) => Promise<void>; logout: () => void };
+type AuthContextType = { user: User | null; token: string | null; loading: boolean; login: (email: string, password: string, remember: boolean) => Promise<void>; registerTeacher: (data: RegisterTeacherPayload) => Promise<void>; updateProfile: (data: { name: string; email: string; photoUrl?: string | null }) => Promise<void>; logout: () => void };
 type RegisterTeacherPayload = { name: string; email: string; password: string };
 type SleepRecord = { id: number; date: string; sleepTime?: string; wakeTime?: string; sleepStart?: string; sleepEnd?: string; scoreTotal: number; totalHours: number; classification: string; perceivedQuality: number; awakenings: number; morningState?: number; wakeState?: number; energy?: number; mood?: number; stress?: number; generalPain?: number; bodyHeaviness?: number; timeToSleep?: number; sleepLatencyMinutes?: number; nap?: boolean; caffeine?: boolean; alcohol?: boolean; screenBeforeSleep?: boolean; pain?: boolean; notes?: string; scoreDuration?: number; scoreQuality?: number; scoreContinuity?: number; scoreState?: number; scoreRegularity?: number };
 type WeeklySummary = { averageScore?: number; averageHours?: number; averageQuality?: number; averageEnergy?: number; nightsRecorded?: number; goodNights?: number; badNights?: number; regularityAverage?: number; adherence?: number; trend?: string };
@@ -24,6 +24,7 @@ type OwnerTeacherMetric = {
   userId: number | null;
   name: string;
   email: string;
+  photoUrl?: string | null;
   active: boolean;
   createdAt?: string | null;
   teacherCode: string;
@@ -48,7 +49,7 @@ type OwnerTeacherMetric = {
     lowAdherence?: { id: number | string; name: string; email: string; recordsLast7Days: number }[];
     withoutRecords?: { id: number | string; name: string; email: string }[];
   };
-  students?: { id: number | string; name: string; email: string; status: string; latestRecordDate: string | null; averageScore: number | null; recordsLast7Days: number }[];
+  students?: { id: number | string; name: string; email: string; photoUrl?: string | null; status: string; latestRecordDate: string | null; averageScore: number | null; recordsLast7Days: number }[];
 };
 
 function resolveApiUrl() {
@@ -186,7 +187,15 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser({ ...data.user, teacherCode: data.teacherCode }); setTokenState(data.token);
   };
 
-  return <AuthContext.Provider value={{ user, token: tokenState, loading, login, registerTeacher, logout }}>{children}</AuthContext.Provider>;
+  const updateProfile = async (payload: { name: string; email: string; photoUrl?: string | null }) => {
+    const { data } = await api.patch('/auth/me', payload);
+    const updatedUser = { ...data.user, teacherCode: data.teacherCode };
+    const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
+    storage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
+  return <AuthContext.Provider value={{ user, token: tokenState, loading, login, registerTeacher, updateProfile, logout }}>{children}</AuthContext.Provider>;
 }
 
 function Splash() {
@@ -497,9 +506,30 @@ function openStudentInStudentsPage(navigate: (path: string, options?: { state?: 
 }
 
 function Shell({ children, title, eyebrow, subtitle, backTo, nav, headerAction }: { children: React.ReactNode; title: string; eyebrow?: string; subtitle?: string; backTo?: string; nav?: React.ReactNode; headerAction?: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const navigate = useNavigate();
   const isTeacher = user?.profile === 'teacher';
+  const saveHeaderPhoto = (photoUrl: string | null) => {
+    if (!user) return;
+    updateProfile({ name: user.name, email: user.email, photoUrl }).catch((error) => window.alert(messageFromError(error)));
+  };
+  const handleHeaderPhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+      window.alert('Use uma imagem PNG, JPG ou WEBP.');
+      return;
+    }
+    if (file.size > 1_800_000) {
+      window.alert('Use uma foto menor, de ate 1,8 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => saveHeaderPhoto(String(reader.result || ''));
+    reader.onerror = () => window.alert('Nao foi possivel ler a foto.');
+    reader.readAsDataURL(file);
+  };
   if (isTeacher) {
     const professorName = user?.name || 'Professor';
     const professorFirstName = String(professorName).trim().split(/\s+/)[0] || 'Professor';
@@ -538,6 +568,13 @@ function Shell({ children, title, eyebrow, subtitle, backTo, nav, headerAction }
               <strong>{professorName}</strong>
               <small>Código do Professor: {user?.teacherCode || '—'}</small>
               <em>by Araújo E.</em>
+            </div>
+            <div className="profilePhotoActions">
+              <label className="profilePhotoButton" title="Alterar foto">
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleHeaderPhotoChange} />
+                Foto
+              </label>
+              {user?.photoUrl && <button className="profilePhotoButton" type="button" onClick={() => saveHeaderPhoto(null)}>Remover</button>}
             </div>
           </div>
         </section>
@@ -1358,7 +1395,7 @@ function OwnerTeachersDashboard() {
       <section className="ownerTeacherGrid">
         {filteredTeachers.map((teacher)=><button className="ownerTeacherCard ownerTeacherButton" key={teacher.teacherId} type="button" onClick={()=>openTeacherDetails(teacher)}>
           <div className="ownerTeacherTop">
-            <EntityAvatar entity={{ name: teacher.name, email: teacher.email }} size="md" className="studentAvatar" fallbackName={teacher.name} />
+            <EntityAvatar entity={teacher} size="md" className="studentAvatar" fallbackName={teacher.name} />
             <span className="ownerStatus good">Professor</span>
           </div>
           <div className="ownerTeacherIdentity">

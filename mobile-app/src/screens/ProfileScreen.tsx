@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
@@ -75,6 +76,7 @@ export default function ProfileScreen() {
   const [savingReminder, setSavingReminder] = useState(false);
   const [profileName, setProfileName] = useState(user?.name || '');
   const [profileEmail, setProfileEmail] = useState(user?.email || '');
+  const [profilePhoto, setProfilePhoto] = useState<string | null | undefined>(undefined);
   const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
@@ -110,7 +112,8 @@ export default function ProfileScreen() {
   useEffect(() => {
     setProfileName(user?.name || '');
     setProfileEmail(user?.email || '');
-  }, [user?.name, user?.email]);
+    setProfilePhoto(undefined);
+  }, [user?.name, user?.email, user?.photoUrl]);
 
   const activateReminder = async () => {
     const normalized = normalizeClockOnBlur(reminderTime);
@@ -158,7 +161,7 @@ export default function ProfileScreen() {
     }
     setSavingProfile(true);
     try {
-      await updateProfile(name, email);
+      await updateProfile(name, email, profilePhoto);
       Alert.alert('Perfil atualizado', 'Seus dados foram salvos.');
     } catch (error) {
       Alert.alert('Erro', getApiErrorMessage(error, 'Nao foi possivel atualizar seus dados.'));
@@ -167,7 +170,45 @@ export default function ProfileScreen() {
     }
   };
 
-  const avatarSource = useMemo<ImageSourcePropType | null>(() => getStudentPhotoSource(user), [user]);
+  const pickProfilePhoto = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Permissao necessaria', 'Permita acesso as fotos para escolher uma imagem.');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.65,
+        base64: true,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset?.base64) {
+        Alert.alert('Foto indisponivel', 'Nao foi possivel ler a imagem escolhida.');
+        return;
+      }
+      const mimeType = asset.mimeType || 'image/jpeg';
+      setProfilePhoto(`data:${mimeType};base64,${asset.base64}`);
+      setAvatarFailed(false);
+    } catch (error) {
+      Alert.alert('Erro', 'Nao foi possivel escolher a foto.');
+    }
+  };
+
+  const removeProfilePhoto = () => {
+    setProfilePhoto(null);
+    setAvatarFailed(false);
+  };
+
+  const avatarSource = useMemo<ImageSourcePropType | null>(() => {
+    if (profilePhoto !== undefined) return profilePhoto ? { uri: profilePhoto } : null;
+    return getStudentPhotoSource(user);
+  }, [profilePhoto, user]);
   const avatarInitials = useMemo(() => initialsFromStudentName(user?.name) || 'EA', [user?.name]);
   const [avatarFailed, setAvatarFailed] = useState(false);
 
@@ -187,7 +228,7 @@ export default function ProfileScreen() {
 
         {user && (
           <View style={styles.profileHero}>
-            <View style={styles.avatarOuter}>
+          <View style={styles.avatarOuter}>
               <View style={styles.avatarCircle}>
                 {avatarSource && !avatarFailed ? (
                   <Image
@@ -208,6 +249,9 @@ export default function ProfileScreen() {
                 <Text style={styles.roleText}>{user.profile === 'student' ? 'Aluno' : 'Professor'}</Text>
               </View>
             </View>
+            <Pressable style={styles.avatarEditButton} onPress={pickProfilePhoto}>
+              <MaterialCommunityIcons name="camera-outline" size={18} color={colors.text} />
+            </Pressable>
           </View>
         )}
 
@@ -232,6 +276,17 @@ export default function ProfileScreen() {
               placeholderTextColor={colors.subtle}
               autoCapitalize="words"
             />
+          </View>
+
+          <View style={styles.photoActions}>
+            <Pressable style={styles.photoButton} onPress={pickProfilePhoto}>
+              <MaterialCommunityIcons name="image-edit-outline" size={21} color={colors.primary} />
+              <Text style={styles.photoButtonText}>Escolher foto</Text>
+            </Pressable>
+            <Pressable style={styles.photoButton} onPress={removeProfilePhoto}>
+              <MaterialCommunityIcons name="trash-can-outline" size={21} color={colors.danger} />
+              <Text style={styles.photoButtonText}>Remover</Text>
+            </Pressable>
           </View>
 
           <View style={styles.accountField}>
@@ -434,6 +489,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
     overflow: 'hidden',
   },
+  avatarEditButton: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
   avatarImage: {
     width: '100%',
     height: '100%',
@@ -442,6 +510,24 @@ const styles = StyleSheet.create({
   profileInfo: { flex: 1, minWidth: 0 },
   profileName: { color: colors.text, fontSize: 24, fontWeight: '900', marginBottom: 5, letterSpacing: -0.4 },
   profileEmail: { color: colors.muted, fontSize: 14, lineHeight: 19, marginBottom: 10 },
+  photoActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  photoButton: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  photoButtonText: { color: colors.text, fontWeight: '900', fontSize: 13 },
   accountCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
