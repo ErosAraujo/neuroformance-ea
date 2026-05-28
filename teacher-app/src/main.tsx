@@ -5,7 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, usePa
 import './styles.css';
 
 type Profile = 'student' | 'teacher';
-type User = { id: number; name: string; email: string; profile: Profile; teacherCode?: string; photoUrl?: string; avatarUrl?: string; profilePhoto?: string; imageUrl?: string; picture?: string; photo?: string; avatar?: string };
+type User = { id: number; name: string; email: string; profile: Profile; teacherId?: number; studentId?: number; teacherCode?: string; photoUrl?: string; avatarUrl?: string; profilePhoto?: string; imageUrl?: string; picture?: string; photo?: string; avatar?: string };
 type AuthContextType = { user: User | null; token: string | null; loading: boolean; login: (email: string, password: string, remember: boolean) => Promise<void>; registerStudent: (data: RegisterStudentPayload) => Promise<void>; logout: () => void };
 type RegisterStudentPayload = { name: string; email: string; password: string; teacherCode: string };
 type SleepRecord = { id: number; date: string; sleepTime?: string; wakeTime?: string; sleepStart?: string; sleepEnd?: string; scoreTotal: number; totalHours: number; classification: string; perceivedQuality: number; awakenings: number; morningState?: number; wakeState?: number; energy?: number; mood?: number; stress?: number; generalPain?: number; bodyHeaviness?: number; timeToSleep?: number; sleepLatencyMinutes?: number; nap?: boolean; caffeine?: boolean; alcohol?: boolean; screenBeforeSleep?: boolean; pain?: boolean; notes?: string; scoreDuration?: number; scoreQuality?: number; scoreContinuity?: number; scoreState?: number; scoreRegularity?: number };
@@ -75,6 +75,7 @@ function resolveApiUrl() {
 
 const API_URL = resolveApiUrl();
 const STUDENT_APP_URL = String(import.meta.env.VITE_STUDENT_APP_URL || '').trim();
+const OWNER_TEACHER_ID = Number(import.meta.env.VITE_OWNER_TEACHER_ID || 1);
 const api = axios.create({ baseURL: API_URL, timeout: 15000 });
 const EVIDENCE_PHOTO_LABELS: Record<string, string> = {
   person: 'Pessoa',
@@ -428,11 +429,13 @@ function StudentBottomNav() {
 function TeacherNav({ alertCount }: { alertCount?: number } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isOwner = user?.profile === 'teacher' && [user.teacherId, user.teacherCode].some((value) => Number(value || 0) === OWNER_TEACHER_ID);
   const items = [
     ['/professor','Dashboard','▦'],
-    ['/professor/professores','Professores','PRO'],
     ['/professor/desafios','Desafios','⚡'],
     ['/professor/alunos','Alunos','♙'],
+    ...(isOwner ? [['/professor/professores','Professores','PRO']] : []),
     ['/professor/acessos','Acessos','▣'],
     ['/professor/alertas','Alertas','♧']
   ];
