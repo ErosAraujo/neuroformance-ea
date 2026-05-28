@@ -19,6 +19,45 @@ type DashboardStudent = StudentListItem & { activeGoal?: SleepGoal; alerts?: Ale
 type FatigueResult = { riskFinal: number | null; level: 'baixo' | 'moderado' | 'alto' | 'elevado/crítico' | 'dados insuficientes'; media?: number; risco1?: number; risco2?: number; risco3?: number; reason?: string };
 type GoalNotMetResult = { hasGoal: boolean; isNotMet: boolean; severeDeficit: boolean; averageHours: number | null; goalHours: number | null; baseReduced: boolean; recordsUsed: number };
 type DashboardModalState = { title: string; description?: string; items: React.ReactNode[] } | null;
+type OwnerTeacherMetric = {
+  teacherId: number;
+  userId: number | null;
+  name: string;
+  email: string;
+  active: boolean;
+  createdAt?: string | null;
+  teacherCode: string;
+  totalStudents: number;
+  activeStudents: number;
+  archivedStudents: number;
+  deletedStudents: number;
+  registeredToday: number;
+  riskStudents: number;
+  lowAdherenceStudents: number;
+  criticalAdherenceStudents: number;
+  studentsWithAlerts: number;
+  totalActiveAlerts: number;
+  studentsWithoutRecords: number;
+  averageReadiness: number | null;
+  recordsLast7Days: number;
+  attentionScore: number;
+  operationalStatus: 'sem_alunos' | 'estavel' | 'atencao' | 'critico';
+  lastActivityAt?: string | null;
+  challengeMetrics: {
+    totalChallenges: number;
+    activeChallenges: number;
+    pendingChallenges: number;
+    finishedChallenges: number;
+    cancelledChallenges: number;
+    contestedSessions: number;
+    validSessions: number;
+  };
+  studentHighlights?: {
+    risk?: { id: number | string; name: string; email: string; score: number | null }[];
+    lowAdherence?: { id: number | string; name: string; email: string; recordsLast7Days: number }[];
+    withoutRecords?: { id: number | string; name: string; email: string }[];
+  };
+};
 
 function resolveApiUrl() {
   const envUrl = String(import.meta.env.VITE_API_URL || '').trim();
@@ -37,6 +76,33 @@ function resolveApiUrl() {
 const API_URL = resolveApiUrl();
 const STUDENT_APP_URL = String(import.meta.env.VITE_STUDENT_APP_URL || '').trim();
 const api = axios.create({ baseURL: API_URL, timeout: 15000 });
+const EVIDENCE_PHOTO_LABELS: Record<string, string> = {
+  person: 'Pessoa',
+  numbers: 'Numeros',
+  extra: 'Complementar',
+};
+
+function resolveUploadUrl(value?: string | null) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+  const root = API_URL === '/api'
+    ? window.location.origin
+    : API_URL.replace(/\/api\/?$/i, '').replace(/\/$/, '');
+  return raw.startsWith('/') ? `${root}${raw}` : `${root}/${raw}`;
+}
+
+function normalizeEvidencePhotos(value: any) {
+  if (!Array.isArray(value)) return [];
+  const order = ['person', 'numbers', 'extra'];
+  return value
+    .map((photo: any) => ({
+      type: String(photo?.type || '').trim().toLowerCase(),
+      photoUrl: String(photo?.photoUrl || '').trim(),
+    }))
+    .filter((photo) => order.includes(photo.type) && photo.photoUrl)
+    .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+}
 
 function isPublicAuthRoute(url?: string) {
   const route = String(url || '');
@@ -364,6 +430,8 @@ function TeacherNav({ alertCount }: { alertCount?: number } = {}) {
   const navigate = useNavigate();
   const items = [
     ['/professor','Dashboard','▦'],
+    ['/professor/professores','Professores','PRO'],
+    ['/professor/desafios','Desafios','⚡'],
     ['/professor/alunos','Alunos','♙'],
     ['/professor/acessos','Acessos','▣'],
     ['/professor/alertas','Alertas','♧']
@@ -1159,6 +1227,199 @@ function TeacherDashboard() {
         <button className="deepMetricCard teal" onClick={()=>setModal({ title: 'Alunos com Alertas', description: 'Alertas oficiais calculados pelo backend.', items: studentsWithAlerts.map(item => <button className="studentRow" key={item.student.id} onClick={()=>openStudent(item.student.id)}><StudentAvatar student={item.student} size="sm"/><div><strong>{item.student.name}</strong><small>{item.alerts.length} alerta(s): {item.alerts.slice(0,3).map(alert=>alert.description).join(' | ')}</small><em>Abrir ficha</em></div><b className={severityTone(item.alerts.some(a=>String(a.level).includes('crítica')) ? 'crítica' : item.alerts[0]?.level)}>{item.alerts.length}</b></button>) })}>
           <span>🚨</span><div><small>Alertas ativos</small><strong>{studentsWithAlerts.length}</strong><p>Cada aluno conta uma vez, mesmo com múltiplos alertas ativos.</p><em>Abrir alertas</em></div>
         </button>
+      </section>
+    </>}
+  </Shell>;
+}
+
+function ownerTeacherStatusLabel(status?: OwnerTeacherMetric['operationalStatus']) {
+  if (status === 'sem_alunos') return 'Sem alunos';
+  if (status === 'critico') return 'Critico';
+  if (status === 'atencao') return 'Atencao';
+  return 'Estavel';
+}
+
+function ownerTeacherStatusClass(status?: OwnerTeacherMetric['operationalStatus']) {
+  if (status === 'sem_alunos') return 'neutral';
+  if (status === 'critico') return 'danger';
+  if (status === 'atencao') return 'warn';
+  return 'good';
+}
+
+function ownerTeacherSearchText(teacher: OwnerTeacherMetric) {
+  return normalizeText(`${teacher.name} ${teacher.email} ${teacher.teacherCode} ${ownerTeacherStatusLabel(teacher.operationalStatus)}`);
+}
+
+function ownerStudentHighlightRows(items: any[], kind: 'risk' | 'low' | 'none') {
+  return normalizeArray<any>(items).map((item, index) => <div className="ownerHighlightRow" key={`${kind}-${item.id || index}`}>
+    <div><strong>{item.name || 'Aluno'}</strong><small>{item.email || 'sem e-mail'}</small></div>
+    {kind === 'risk' && <b className={levelClass(item.score)}>{score(item.score)}</b>}
+    {kind === 'low' && <b>{item.recordsLast7Days || 0}/7</b>}
+    {kind === 'none' && <b>0</b>}
+  </div>);
+}
+
+function OwnerTeachersDashboard() {
+  const [data,setData]=useState<any>(null);
+  const [search,setSearch]=useState('');
+  const [error,setError]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [modal,setModal]=useState<DashboardModalState>(null);
+  const [newTeacher,setNewTeacher]=useState({ name: '', email: '', password: '' });
+  const [creatingTeacher,setCreatingTeacher]=useState(false);
+  const [createStatus,setCreateStatus]=useState('');
+
+  async function loadOwnerDashboard() {
+    setLoading(true); setError('');
+    try {
+      const response = await api.get('/owner/teachers-dashboard');
+      setData(response.data);
+    } catch (err) {
+      setData(null);
+      setError(messageFromError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(()=>{ loadOwnerDashboard(); },[]);
+
+  const overview = data?.overview || {};
+  const teachers = normalizeArray<OwnerTeacherMetric>(data?.teachers || []);
+  const byAttention = normalizeArray<OwnerTeacherMetric>(data?.rankings?.byAttention || []);
+  const byStudents = normalizeArray<OwnerTeacherMetric>(data?.rankings?.byStudents || []);
+  const q = normalizeText(search);
+  const filteredTeachers = q ? teachers.filter(ownerTeacherSearchText).filter((teacher) => ownerTeacherSearchText(teacher).includes(q)) : teachers;
+  const totalTeachers = Number(overview.totalTeachers ?? teachers.length);
+  const activeStudents = Number(overview.activeStudents ?? teachers.reduce((sum, teacher) => sum + teacher.activeStudents, 0));
+  const contestedSessions = Number(overview.contestedSessions ?? teachers.reduce((sum, teacher) => sum + teacher.challengeMetrics.contestedSessions, 0));
+  const totalAlerts = Number(overview.totalActiveAlerts ?? teachers.reduce((sum, teacher) => sum + teacher.totalActiveAlerts, 0));
+
+  const openTeacherDetails = (teacher: OwnerTeacherMetric) => {
+    const highlights = teacher.studentHighlights || {};
+    setModal({
+      title: teacher.name,
+      description: `Codigo ${teacher.teacherCode} - ${teacher.email || 'sem e-mail'} - ${ownerTeacherStatusLabel(teacher.operationalStatus)}`,
+      items: [
+        <section className="ownerTeacherModal" key={teacher.teacherId}>
+          <div className="ownerModalMetrics">
+            <span><small>Alunos ativos</small><b>{teacher.activeStudents}</b></span>
+            <span><small>Prontidao media</small><b className={levelClass(teacher.averageReadiness)}>{pct(teacher.averageReadiness)}</b></span>
+            <span><small>Alertas</small><b>{teacher.totalActiveAlerts}</b></span>
+            <span><small>Contestado</small><b>{teacher.challengeMetrics.contestedSessions}</b></span>
+          </div>
+          <div className="ownerModalColumns">
+            <div><h4>Alunos em risco</h4>{ownerStudentHighlightRows(highlights.risk || [], 'risk')}{!normalizeArray<any>(highlights.risk || []).length && <Empty text="Nenhum aluno em risco agora."/>}</div>
+            <div><h4>Baixa adesao</h4>{ownerStudentHighlightRows(highlights.lowAdherence || [], 'low')}{!normalizeArray<any>(highlights.lowAdherence || []).length && <Empty text="Nenhum aluno com baixa adesao."/>}</div>
+            <div><h4>Sem registros</h4>{ownerStudentHighlightRows(highlights.withoutRecords || [], 'none')}{!normalizeArray<any>(highlights.withoutRecords || []).length && <Empty text="Todos os alunos ativos possuem algum registro."/>}</div>
+          </div>
+        </section>,
+      ],
+    });
+  };
+
+  async function createTeacher(event: React.FormEvent) {
+    event.preventDefault();
+    const name = newTeacher.name.trim();
+    const email = newTeacher.email.trim().toLowerCase();
+    const password = newTeacher.password;
+    if (name.length < 2) { setError('Nome do professor deve ter pelo menos 2 caracteres.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(email)) { setError('E-mail do professor invalido.'); return; }
+    if (password.length < 6) { setError('Senha deve ter pelo menos 6 caracteres.'); return; }
+    setCreatingTeacher(true); setError(''); setCreateStatus('');
+    try {
+      const { data } = await api.post('/owner/teachers', { name, email, password });
+      setCreateStatus(`Professor criado. Codigo: ${data?.teacher?.teacherCode || 'gerado'}.`);
+      setNewTeacher({ name: '', email: '', password: '' });
+      await loadOwnerDashboard();
+    } catch (err) {
+      setError(messageFromError(err));
+    } finally {
+      setCreatingTeacher(false);
+    }
+  }
+
+  return <Shell title="Professores" eyebrow="CONTROLE DO CRIADOR" subtitle="Acompanhe professores, alunos, alertas, desafios e pendencias em uma visao executiva." backTo="/professor" nav={<TeacherNav/>}>
+    <TeacherDashboardModal modal={modal} onClose={()=>setModal(null)}/>
+    {error && <div className="error premiumError">{error}<button type="button" className="secondary smallInline" onClick={loadOwnerDashboard}>Tentar novamente</button></div>}
+    {loading ? <LoadingCard/> : <>
+      <section className="teacherDashboardGrid three ownerSummaryGrid">
+        <TeacherMetricCard title="Professores" value={totalTeachers} description="Total de professores cadastrados no sistema." tone="info">
+          <div className="metricSplit"><span>{overview.activeTeachers ?? 0} ativos</span><small>{overview.teachersWithoutStudents ?? 0} sem alunos ativos</small></div>
+        </TeacherMetricCard>
+        <TeacherMetricCard title="Alunos ativos" value={activeStudents} description="Alunos ativos somando todos os professores." tone="good">
+          <TeacherDonut value={Number(overview.registeredToday ?? 0)} total={activeStudents} tone="good" />
+        </TeacherMetricCard>
+        <TeacherMetricCard title="Alertas ativos" value={totalAlerts} description="Soma de alertas oficiais gerados para alunos de todos os professores." tone={totalAlerts ? 'warn' : 'good'}>
+          <div className="metricSplit"><span>{overview.riskStudents ?? 0} em risco</span><small>{overview.lowAdherenceStudents ?? 0} com baixa adesao</small></div>
+        </TeacherMetricCard>
+        <TeacherMetricCard title="Desafios" value={overview.totalChallenges ?? 0} description="Volume de disputas 1v1 associadas aos alunos dos professores." tone="info">
+          <div className="metricSplit"><span>{overview.activeChallenges ?? 0} ativos</span><small>{overview.pendingChallenges ?? 0} pendentes</small></div>
+        </TeacherMetricCard>
+        <TeacherMetricCard title="Contestacoes" value={contestedSessions} description="Registros de treino que precisam de decisao do professor." tone={contestedSessions ? 'danger' : 'good'}>
+          <div className="metricSplit"><span>{overview.validSessions ?? 0} treinos validos</span><small>Cardio 1v1</small></div>
+        </TeacherMetricCard>
+        <TeacherMetricCard title="Media por professor" value={overview.averageStudentsPerTeacher ?? 0} description="Media de alunos ativos por professor cadastrado." tone="low">
+          <div className="metricSplit"><span>{overview.archivedStudents ?? 0} arquivados</span><small>{overview.deletedStudents ?? 0} deletados</small></div>
+        </TeacherMetricCard>
+      </section>
+
+      <section className="card ownerControlPanel">
+        <div className="sectionHeader">
+          <div><span className="eyebrow">Visao por professor</span><h3>Controle operacional</h3><p>Ordenado por necessidade de atencao, alertas, baixa adesao e contestacoes.</p></div>
+          <button className="secondary" type="button" onClick={loadOwnerDashboard}>Atualizar</button>
+        </div>
+        <input className="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar professor por nome, e-mail ou codigo..." />
+      </section>
+
+      <section className="card ownerCreateTeacherPanel">
+        <div className="sectionHeader">
+          <div><span className="eyebrow">Novo professor</span><h3>Criar acesso de professor</h3><p>Cadastre professores pela area do criador. O codigo do professor sera gerado automaticamente.</p></div>
+        </div>
+        <form className="ownerCreateTeacherForm" onSubmit={createTeacher}>
+          <label><span>Nome</span><input value={newTeacher.name} onChange={event=>setNewTeacher(current=>({...current, name: event.target.value}))} placeholder="Nome do professor" required /></label>
+          <label><span>E-mail</span><input value={newTeacher.email} onChange={event=>setNewTeacher(current=>({...current, email: event.target.value}))} placeholder="email@professor.com" type="email" required /></label>
+          <label><span>Senha inicial</span><input value={newTeacher.password} onChange={event=>setNewTeacher(current=>({...current, password: event.target.value}))} placeholder="Minimo 6 caracteres" type="password" required /></label>
+          <button className="primary" disabled={creatingTeacher}>{creatingTeacher ? 'Criando...' : 'Criar professor'}</button>
+        </form>
+        {createStatus && <div className="success">{createStatus}</div>}
+      </section>
+
+      <section className="ownerRankingGrid">
+        <article className="card ownerRankingCard">
+          <h3>Maior atencao agora</h3>
+          <div className="list">{byAttention.slice(0,5).map((teacher)=><button className="ownerRankingRow" key={teacher.teacherId} onClick={()=>openTeacherDetails(teacher)}><span className={ownerTeacherStatusClass(teacher.operationalStatus)}>{ownerTeacherStatusLabel(teacher.operationalStatus)}</span><div><strong>{teacher.name}</strong><small>{teacher.attentionScore} ponto(s) de atencao - {teacher.totalActiveAlerts} alerta(s)</small></div><b>{teacher.activeStudents}</b></button>)}{!byAttention.length && <Empty text="Sem professores para ranquear."/>}</div>
+        </article>
+        <article className="card ownerRankingCard">
+          <h3>Maior base de alunos</h3>
+          <div className="list">{byStudents.slice(0,5).map((teacher)=><button className="ownerRankingRow" key={teacher.teacherId} onClick={()=>openTeacherDetails(teacher)}><span className="good">BASE</span><div><strong>{teacher.name}</strong><small>{teacher.registeredToday}/{teacher.activeStudents} registraram hoje</small></div><b>{teacher.activeStudents}</b></button>)}{!byStudents.length && <Empty text="Sem professores para ranquear."/>}</div>
+        </article>
+      </section>
+
+      <section className="ownerTeacherGrid">
+        {filteredTeachers.map((teacher)=><article className={`ownerTeacherCard ${ownerTeacherStatusClass(teacher.operationalStatus)}`} key={teacher.teacherId}>
+          <div className="ownerTeacherTop">
+            <EntityAvatar entity={{ name: teacher.name, email: teacher.email }} size="md" className="studentAvatar" fallbackName={teacher.name} />
+            <span className={`ownerStatus ${ownerTeacherStatusClass(teacher.operationalStatus)}`}>{ownerTeacherStatusLabel(teacher.operationalStatus)}</span>
+          </div>
+          <div className="ownerTeacherIdentity">
+            <h3>{teacher.name}</h3>
+            <p>{teacher.email || 'sem e-mail'} - codigo {teacher.teacherCode}</p>
+          </div>
+          <div className="ownerMetricGrid">
+            <span><small>Alunos</small><b>{teacher.activeStudents}/{teacher.totalStudents}</b></span>
+            <span><small>Hoje</small><b>{teacher.registeredToday}</b></span>
+            <span><small>Prontidao</small><b className={levelClass(teacher.averageReadiness)}>{pct(teacher.averageReadiness)}</b></span>
+            <span><small>Alertas</small><b>{teacher.totalActiveAlerts}</b></span>
+            <span><small>Desafios</small><b>{teacher.challengeMetrics.activeChallenges} ativos</b></span>
+            <span><small>Contest.</small><b>{teacher.challengeMetrics.contestedSessions}</b></span>
+          </div>
+          <div className="ownerTeacherFooter">
+            <span>Ultima atividade: {teacher.lastActivityAt ? brDateTime(teacher.lastActivityAt) : 'sem atividade'}</span>
+            <button className="secondary" type="button" onClick={()=>openTeacherDetails(teacher)}>Ver detalhes</button>
+          </div>
+        </article>)}
+        {!filteredTeachers.length && <section className="card"><Empty text="Nenhum professor encontrado." /></section>}
       </section>
     </>}
   </Shell>;
@@ -1991,6 +2252,481 @@ function StudentDetailModal({ studentId, onClose }: { studentId: number | string
   </div>;
 }
 
+const teacherChallengeStudents = [
+  { id: 1, name: 'Eros Araújo', level: 'A Ameaça', wins: 3, badge: 'A AMEAÇA' },
+  { id: 2, name: 'Gabriela Perez', level: 'Desafiante', wins: 2, badge: 'Sem badge ativa' },
+  { id: 3, name: 'Gregorio Rodrigues', level: 'O Caçador', wins: 5, badge: 'O CAÇADOR' },
+  { id: 4, name: 'Ingrid Lucio', level: 'Desafiante', wins: 1, badge: 'Sem badge ativa' },
+  { id: 5, name: 'Vinicius Mol', level: 'O Implacável', wins: 10, badge: 'O IMPLACÁVEL' },
+];
+
+const teacherChallengeCategories = [
+  { key: 'maratonista', name: 'O Maratonista', title: 'Duelo de Quilômetros', status: 'Completa', rule: 'Quem acumula mais KM vence.', durations: [3, 5, 7] },
+  { key: 'consistente', name: 'O Consistente', title: 'Guerra das Sessões', status: 'Parcial', rule: 'Cada sessão válida de 30 minutos soma 1 ponto.', durations: [] },
+  { key: 'intenso', name: 'O Intenso', title: 'Queima de Calorias', status: 'PENDENTE DE DEFINIÇÃO', rule: 'PENDENTE DE DEFINIÇÃO', durations: [] },
+  { key: 'rei-da-montanha', name: 'O Rei da Montanha', title: 'Ganho de Elevação', status: 'PENDENTE DE DEFINIÇÃO', rule: 'PENDENTE DE DEFINIÇÃO', durations: [] },
+  { key: 'guerreiro-fim-de-semana', name: 'O Guerreiro de Fim de Semana', title: 'PENDENTE DE DEFINIÇÃO', status: 'PENDENTE DE DEFINIÇÃO', rule: 'PENDENTE DE DEFINIÇÃO', durations: [] },
+  { key: 'acelerado', name: 'O Acelerado', title: 'Melhor Pace Médio', status: 'PENDENTE DE DEFINIÇÃO', rule: 'PENDENTE DE DEFINIÇÃO', durations: [] },
+];
+
+const teacherChallengeCards = [
+  { id: 101, category: 'O Maratonista', title: 'Duelo de Quilômetros', status: 'ativo', a: 'Eros Araújo', b: 'Gabriela Perez', scoreA: '18,7 km', scoreB: '16,2 km', pending: 1, remaining: '2 dias e 6 horas' },
+  { id: 102, category: 'O Maratonista', title: 'Duelo de Quilômetros', status: 'pendente', a: 'Gregorio Rodrigues', b: 'Ingrid Lucio', scoreA: '0 km', scoreB: '0 km', pending: 0, remaining: 'Aguardando aceite' },
+  { id: 103, category: 'O Consistente', title: 'Guerra das Sessões', status: 'PENDENTE DE DEFINIÇÃO', a: 'Vinicius Mol', b: 'Gabriela Perez', scoreA: '0 sessão', scoreB: '0 sessão', pending: 0, remaining: 'Segunda prioridade' },
+];
+
+const teacherContestedSessions = [
+  { id: 301, student: 'Gabriela Perez', opponent: 'Eros Araújo', challenge: 'Duelo de Quilômetros', detail: 'Corrida • 4,1 km • 32 min', reason: 'Distância preenchida não parece bater com a foto.', status: 'em_analise_professor' },
+  { id: 302, student: 'Gregorio Rodrigues', opponent: 'Ingrid Lucio', challenge: 'Duelo de Quilômetros', detail: 'Esteira • 3,2 km • 21 min', reason: 'Tempo pouco legível na foto.', status: 'em_analise_professor' },
+];
+
+function TeacherChallengeBadge({ status }: { status: string }) {
+  const normalized = normalizeText(status);
+  const tone = normalized.includes('ativo') ? 'good' : normalized.includes('pendente') ? 'warn' : normalized.includes('analise') ? 'low' : 'neutral';
+  return <b className={`statusBadge ${tone}`}>{status}</b>;
+}
+
+function TeacherChallenges() {
+  const [tab, setTab] = useState<'overview' | 'active' | 'pending' | 'contested' | 'create' | 'ranking'>('overview');
+  const [studentA, setStudentA] = useState(String(teacherChallengeStudents[0].id));
+  const [studentB, setStudentB] = useState(String(teacherChallengeStudents[1].id));
+  const [categoryKey, setCategoryKey] = useState('maratonista');
+  const [duration, setDuration] = useState('3');
+  const [decisionLog, setDecisionLog] = useState('');
+  const [remoteActive, setRemoteActive] = useState<any[]>([]);
+  const [remotePending, setRemotePending] = useState<any[]>([]);
+  const [remoteContested, setRemoteContested] = useState<any[]>([]);
+  const [remoteRanking, setRemoteRanking] = useState<any[]>([]);
+  const [remoteStudents, setRemoteStudents] = useState<any[]>([]);
+  const [remoteCategories, setRemoteCategories] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [correctionDrafts, setCorrectionDrafts] = useState<Record<number, { distance: string; duration: string }>>({});
+  const [analysisSessionId, setAnalysisSessionId] = useState<number | null>(null);
+  const [historyChallenge, setHistoryChallenge] = useState<any | null>(null);
+  const [historySessions, setHistorySessions] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const challengeStudents = remoteStudents.length ? remoteStudents.map(student => ({
+    id: Number(student.id),
+    name: student.name || student.user?.name || `Aluno ${student.id}`,
+    level: student.currentLevelName || student.level || 'Desafiante',
+    wins: Number(student.wins || 0),
+    badge: student.badge || student.currentLevelName || 'Sem badge ativa',
+  })) : teacherChallengeStudents;
+  const challengeCategories = remoteCategories.length ? remoteCategories.map(category => ({
+    key: category.key,
+    name: category.name,
+    title: category.title || (category.key === 'guerreiro-fim-de-semana' ? 'PENDENTE DE DEFINIÇÃO' : ''),
+    status: category.status === 'definida' ? 'Completa' : category.status === 'parcial' ? 'Parcial' : 'PENDENTE DE DEFINIÇÃO',
+    rule: category.centralRule || 'PENDENTE DE DEFINIÇÃO',
+    durations: category.key === 'maratonista' ? [3, 5, 7] : [],
+  })) : teacherChallengeCategories;
+  const selectedCategory = challengeCategories.find(category => category.key === categoryKey) || challengeCategories[0];
+  const sameStudents = studentA === studentB;
+  const canCreate = selectedCategory.key === 'maratonista' && !sameStudents && challengeStudents.length >= 2;
+
+  async function loadTeacherChallenges() {
+    setLoadError('');
+    const [activeRes, pendingRes, contestedRes, rankingRes, studentsRes, categoriesRes] = await Promise.allSettled([
+      api.get('/teacher/challenges/active'),
+      api.get('/teacher/challenges/pending'),
+      api.get('/teacher/sessions/contested'),
+      api.get('/teacher/rankings'),
+      api.get('/students'),
+      api.get('/challenge-categories'),
+    ]);
+    if (activeRes.status === 'fulfilled') setRemoteActive(normalizeArray<any>(activeRes.value.data));
+    else setLoadError(messageFromError(activeRes.reason));
+    if (pendingRes.status === 'fulfilled') setRemotePending(normalizeArray<any>(pendingRes.value.data));
+    if (contestedRes.status === 'fulfilled') setRemoteContested(normalizeArray<any>(contestedRes.value.data));
+    if (rankingRes.status === 'fulfilled') setRemoteRanking(normalizeArray<any>(rankingRes.value.data));
+    if (studentsRes.status === 'fulfilled') setRemoteStudents(normalizeArray<any>(studentsRes.value.data));
+    if (categoriesRes.status === 'fulfilled') setRemoteCategories(normalizeArray<any>(categoriesRes.value.data));
+  }
+
+  useEffect(() => {
+    loadTeacherChallenges();
+    const timer = setInterval(loadTeacherChallenges, 20000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (challengeStudents.length < 2) return;
+    const ids = challengeStudents.map(student => String(student.id));
+    if (!ids.includes(studentA)) setStudentA(ids[0]);
+    if (!ids.includes(studentB) || studentB === ids[0]) setStudentB(ids[1] || ids[0]);
+  }, [remoteStudents.length]);
+
+  const remoteCards = [...remoteActive, ...remotePending].map((challenge) => {
+    const participants = normalizeArray<any>(challenge.participants);
+    const first = participants[0];
+    const second = participants[1];
+    return {
+      id: challenge.id,
+      category: challenge.category?.name || 'Categoria',
+      title: challenge.category?.title || 'Desafio',
+      status: challenge.status,
+      a: first?.student?.user?.name || 'Aluno 1',
+      b: second?.student?.user?.name || 'Aluno 2',
+      scoreA: `${Number(first?.totalDistanceKm || 0).toFixed(1)} km`,
+      scoreB: `${Number(second?.totalDistanceKm || 0).toFixed(1)} km`,
+      pending: normalizeArray<any>(challenge.sessions).filter(session => session.status === 'em_analise_professor').length,
+      remaining: challenge.endDate ? brDateTime(challenge.endDate) : 'Aguardando',
+      remote: true,
+    };
+  });
+  const sourceChallenges = remoteCards.length ? remoteCards : loadError ? teacherChallengeCards : [];
+  const sourceContested = remoteContested.length ? remoteContested.map(session => ({
+    id: session.id,
+    student: session.student?.user?.name || 'Aluno',
+    opponent: 'Adversário',
+    challenge: session.challenge?.category?.title || 'Desafio',
+    detail: `${session.modality} • ${session.distanceKm || 0} km • ${session.durationMinutes || 0} min`,
+    reason: session.validation?.contestReason || 'Contestação sem motivo detalhado.',
+    modality: session.modality,
+    distanceKm: session.distanceKm,
+    durationMinutes: session.durationMinutes,
+    calories: session.calories,
+    elevationMeters: session.elevationMeters,
+    pace: session.pace,
+    registeredAt: session.registeredAt,
+    createdAt: session.createdAt,
+    status: session.status,
+    photoEvidence: normalizeEvidencePhotos(session.photoEvidence),
+    validation: session.validation,
+    remote: true,
+  })) : loadError ? teacherContestedSessions : [];
+  const analysisSession = sourceContested.find((session: any) => session.id === analysisSessionId) as any | undefined;
+
+  const visibleChallenges = sourceChallenges.filter(challenge => {
+    if (tab === 'active') return challenge.status === 'ativo';
+    if (tab === 'pending') return challenge.status === 'pendente';
+    return true;
+  });
+
+  function updateCorrectionDraft(id: number, field: 'distance' | 'duration', value: string) {
+    setCorrectionDrafts((current) => ({
+      ...current,
+      [id]: {
+        distance: current[id]?.distance || '',
+        duration: current[id]?.duration || '',
+        [field]: value,
+      },
+    }));
+  }
+
+  function parseCorrectionValue(value: string) {
+    const normalized = String(value || '').replace(',', '.').trim();
+    if (!normalized) return undefined;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  async function decideContest(action: string, id: number, remote?: boolean) {
+    if (!remote) {
+      setDecisionLog(`Registro #${id}: ${action}. O placar seria recalculado após a decisão do professor.`);
+      setAnalysisSessionId(null);
+      return;
+    }
+    const route = action.includes('corrigido') ? 'professor-correct' : action.includes('recusado') ? 'professor-reject' : 'professor-approve';
+    const payload: any = {};
+    if (route === 'professor-correct') {
+      const sessionForCorrection = sourceContested.find((item: any) => item.id === id) as any;
+      const draft = {
+        distance: correctionDrafts[id]?.distance || String(sessionForCorrection?.distanceKm ?? ''),
+        duration: correctionDrafts[id]?.duration || String(sessionForCorrection?.durationMinutes ?? ''),
+      };
+      const distance = parseCorrectionValue(draft.distance);
+      const duration = parseCorrectionValue(draft.duration);
+      if (distance === null || duration === null) {
+        window.alert('Informe valores corrigidos validos antes de corrigir o registro.');
+        return;
+      }
+      if (distance === undefined && duration === undefined) {
+        window.alert('Preencha pelo menos KM corrigido ou tempo corrigido.');
+        return;
+      }
+      if (distance !== undefined) payload.correctedDistanceKm = distance;
+      if (duration !== undefined) payload.correctedDurationMinutes = duration;
+    }
+    try {
+      await api.post(`/sessions/${id}/${route}`, payload);
+      setDecisionLog(`Registro #${id}: ${action}. Decisão salva no backend.`);
+      setAnalysisSessionId(null);
+      setCorrectionDrafts((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      await loadTeacherChallenges();
+    } catch (err) {
+      setDecisionLog(messageFromError(err));
+    }
+  }
+
+  async function createChallenge() {
+    const first = challengeStudents.find(student => String(student.id) === studentA)?.name;
+    const second = challengeStudents.find(student => String(student.id) === studentB)?.name;
+    setCreating(true);
+    try {
+      await api.post('/teacher/challenges', {
+        categoryKey,
+        creatorStudentId: Number(studentA),
+        opponentStudentId: Number(studentB),
+        durationDays: Number(duration),
+      });
+      window.alert(`Desafio iniciado: ${selectedCategory.name} entre ${first} e ${second}, duração de ${duration} dias.`);
+      await loadTeacherChallenges();
+      setTab('active');
+    } catch (err) {
+      window.alert(`${messageFromError(err)}\n\nO desafio nao foi criado. Corrija os dados ou tente novamente com a API respondendo.`);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function openChallengeHistory(challenge: any) {
+    setHistoryChallenge(challenge);
+    setHistorySessions([]);
+    setHistoryError('');
+    if (!challenge?.remote) {
+      setHistoryError('Historico real disponivel somente para desafios carregados do backend.');
+      return;
+    }
+    setHistoryLoading(true);
+    try {
+      const { data } = await api.get(`/challenges/${challenge.id}/history`);
+      setHistorySessions(normalizeArray<any>(data));
+    } catch (err) {
+      setHistoryError(messageFromError(err));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  return <Shell title="Desafios" eyebrow="CARDIO 1V1" subtitle="Criação, acompanhamento, validação e ranking das disputas diretas." backTo="/professor" nav={<TeacherNav/>}>
+    <section className="heroCard challengeHero">
+      <div>
+        <span className="eyebrow">MVP recomendado</span>
+        <h2>O Maratonista completo</h2>
+        <p>Fluxo pronto para iniciar com criação 1v1, aceite/recusa, registro com 3 fotos, OK do adversário, contestação, decisão do professor, placar e badges.</p>
+        <div className="heroMeta">
+          <span>3, 5 ou 7 dias</span>
+          <span>Caminhada, Corrida, Esteira</span>
+          <span>3 treinos válidos/dia</span>
+          <span>3 fotos dentro do app</span>
+        </div>
+      </div>
+      <div className="challengeHeroScore">
+        <strong>1v1</strong>
+        <small>Cardio</small>
+      </div>
+    </section>
+
+    <section className="teacherDashboardGrid three">
+      <TeacherMetricCard title="Ativos" value={remoteActive.length} description="Disputas em andamento com placar visível." tone="good" action="Ver" onClick={() => setTab('active')} />
+      <TeacherMetricCard title="Pendentes" value={remotePending.length} description="Convites aguardando resposta do adversário." tone="warn" action="Ver" onClick={() => setTab('pending')} />
+      <TeacherMetricCard title="Contestados" value={sourceContested.length} description="Registros bloqueados até decisão do professor." tone="danger" action="Analisar" onClick={() => setTab('contested')} />
+    </section>
+    {loadError && <div className="error">API de desafios indisponível agora: {loadError}. Exibindo dados locais de revisão.</div>}
+
+    <div className="filterBar challengeFilter">
+      {[
+        ['overview', 'Visão geral'],
+        ['create', 'Criar desafio'],
+        ['active', 'Ativos'],
+        ['pending', 'Pendentes'],
+        ['contested', 'Contestados'],
+        ['ranking', 'Ranking'],
+      ].map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key as any)}>{label}</button>)}
+    </div>
+
+    {(tab === 'overview' || tab === 'active' || tab === 'pending') && <section className="challengeBoard">
+      {visibleChallenges.map(challenge => <article className="challengeCard" key={challenge.id}>
+        <div className="challengeCardTop">
+          <div>
+            <span className="eyebrow">{challenge.category}</span>
+            <h3>{challenge.title}</h3>
+          </div>
+          <TeacherChallengeBadge status={challenge.status} />
+        </div>
+        <div className="challengeDuelLine">
+          <strong>{challenge.a}</strong>
+          <span>VS</span>
+          <strong>{challenge.b}</strong>
+        </div>
+        <div className="challengeScoreGrid">
+          <div><small>{challenge.a}</small><b>{challenge.scoreA}</b></div>
+          <div><small>{challenge.b}</small><b>{challenge.scoreB}</b></div>
+          <div><small>Pendências</small><b>{challenge.pending}</b></div>
+          <div><small>Tempo</small><b>{challenge.remaining}</b></div>
+        </div>
+        <div className="accessActions">
+          <button className="secondary" onClick={() => openChallengeHistory(challenge)}>Histórico</button>
+          <button className="primary" onClick={() => setTab('contested')}>Validações</button>
+        </div>
+      </article>)}
+      {!visibleChallenges.length && <Empty text="Nenhum desafio encontrado nesta aba." />}
+    </section>}
+
+    {tab === 'overview' && <section className="grid2">
+      <section className="card">
+        <div className="sectionHeader"><div><h3>Categorias oficiais</h3><p>Somente O Maratonista está fechado para MVP. O Consistente está parcial; as demais seguem pendentes.</p></div></div>
+        <div className="list">{challengeCategories.map(category => <div className="row" key={category.key}><div><strong>{category.name}</strong><small>{category.title} • {category.rule}</small></div><TeacherChallengeBadge status={category.status} /></div>)}</div>
+      </section>
+      <section className="card">
+        <div className="sectionHeader"><div><h3>Status do sistema</h3><p>Estados definidos para desafio e registro de treino.</p></div></div>
+        <div className="challengeStatusCloud">
+          {['pendente','aceito','recusado','expirado','ativo','finalizado','cancelado','aguardando_validacoes','empate','finalizado_com_vencedor','aguardando_ok_adversario','validado','contestado','em_analise_professor','aprovado_professor','corrigido_professor','recusado','fora_limite_diario','invalido_por_regra'].map(status => <span key={status}>{status}</span>)}
+        </div>
+      </section>
+    </section>}
+
+    {tab === 'create' && <section className="card challengeCreatePanel">
+      <div className="sectionHeader"><div><h3>Criar desafio entre alunos</h3><p>O professor escolhe categoria, dois alunos e duração quando aplicável.</p></div></div>
+      <div className="challengeFormGrid">
+        <label>Categoria<select value={categoryKey} onChange={event => setCategoryKey(event.target.value)}>{challengeCategories.map(category => <option key={category.key} value={category.key}>{category.name} — {category.title}</option>)}</select></label>
+        <label>Aluno 1<select value={studentA} onChange={event => setStudentA(event.target.value)}>{challengeStudents.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
+        <label>Aluno 2<select value={studentB} onChange={event => setStudentB(event.target.value)}>{challengeStudents.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
+        <label>Duração<select value={duration} onChange={event => setDuration(event.target.value)}>{(selectedCategory.durations.length ? selectedCategory.durations : [3, 5, 7]).map(days => <option key={days} value={days}>{days} dias</option>)}</select></label>
+      </div>
+      {challengeStudents.length < 2 && <div className="error">Cadastre pelo menos dois alunos ativos para criar uma disputa 1v1.</div>}
+      {sameStudents && <div className="error">Escolha dois alunos diferentes.</div>}
+      {selectedCategory.key !== 'maratonista' && <div className="error">Esta categoria ainda está PENDENTE DE DEFINIÇÃO para criação oficial.</div>}
+      <button className="primary big" disabled={!canCreate || creating} onClick={createChallenge}>{creating ? 'Criando...' : 'Criar desafio'}</button>
+    </section>}
+
+    {tab === 'contested' && <section className="card">
+      <div className="sectionHeader"><div><h3>Registros contestados</h3><p>O professor decide se aprova, corrige ou recusa. Enquanto isso, o treino não pontua.</p></div></div>
+      <div className="list">{sourceContested.map(session => <div className="challengeContestRow" key={session.id}>
+        <div>
+          <strong>{session.student}</strong>
+          <small>{session.challenge} contra {session.opponent}</small>
+          <em>{session.detail}</em>
+          <p>{session.reason}</p>
+          {(session as any).photoEvidence?.length ? <div className="contestEvidenceGrid">
+            {(session as any).photoEvidence.map((photo: any) => <figure key={`${session.id}-${photo.type}`} className="contestEvidencePhoto">
+              <img src={resolveUploadUrl(photo.photoUrl)} alt={`Comprovante ${EVIDENCE_PHOTO_LABELS[photo.type] || photo.type}`} />
+              <figcaption>{EVIDENCE_PHOTO_LABELS[photo.type] || photo.type}</figcaption>
+            </figure>)}
+          </div> : <div className="contestEvidenceMissing">Sem as 3 fotos anexadas neste registro.</div>}
+          {(session as any).remote && <div className="contestCorrectionGrid">
+            <label>KM corrigido<input value={correctionDrafts[session.id]?.distance ?? String((session as any).distanceKm ?? '')} onChange={event => updateCorrectionDraft(session.id, 'distance', event.target.value)} inputMode="decimal" /></label>
+            <label>Tempo corrigido<input value={correctionDrafts[session.id]?.duration ?? String((session as any).durationMinutes ?? '')} onChange={event => updateCorrectionDraft(session.id, 'duration', event.target.value)} inputMode="numeric" /></label>
+          </div>}
+        </div>
+        <div className="challengeContestActions">
+          <button className="primary" onClick={() => setAnalysisSessionId(session.id)}>Analisar</button>
+          <button className="secondary" onClick={() => decideContest('aprovado pelo professor', session.id, Boolean((session as any).remote))}>Aprovar</button>
+          <button className="secondary" onClick={() => decideContest('corrigido pelo professor', session.id, Boolean((session as any).remote))}>Corrigir</button>
+          <button className="ghost" onClick={() => decideContest('recusado pelo professor', session.id, Boolean((session as any).remote))}>Recusar</button>
+        </div>
+      </div>)}</div>
+      {!sourceContested.length && <Empty text="Nenhum registro contestado aguardando decisão." />}
+      {decisionLog && <div className="success">{decisionLog}</div>}
+    </section>}
+
+    {tab === 'ranking' && <section className="card">
+      <div className="sectionHeader"><div><h3>Ranking por categoria</h3><p>Lógica exata de ranking geral: PENDENTE DE DEFINIÇÃO. Para O Maratonista, a base inicial usa vitórias e KM válidos.</p></div></div>
+      <div className="accessTableWrap"><table className="accessTable"><thead><tr><th>#</th><th>Aluno</th><th>Nível</th><th>Vitórias</th><th>Badge principal</th><th>KM válidos</th></tr></thead><tbody>{remoteRanking.map((item:any, index:number) => {
+        const student = item.student?.user ? { id: item.studentId, name: item.student.user.name, level: item.currentLevelName, wins: item.wins, badge: item.currentLevelName, totalDistanceKm: item.totalDistanceKm } : item;
+        return <tr key={student.id || index}><td>{index + 1}</td><td><div className="accessStudentCell"><StudentAvatar student={student} size="sm"/><strong>{student.name}</strong></div></td><td>{student.level || item.currentLevelName}</td><td>{student.wins || item.wins}</td><td>{student.badge || item.currentLevelName}</td><td>{Number(student.totalDistanceKm ?? 0).toFixed(0)} km</td></tr>;
+      })}</tbody></table></div>
+      {!remoteRanking.length && <Empty text="Nenhum dado real de ranking encontrado para esta categoria." />}
+    </section>}
+
+    {historyChallenge && <div className="modalOverlay" role="dialog" aria-modal="true">
+      <section className="modalCard challengeHistoryModal">
+        <div className="sectionHeader">
+          <div>
+            <span className="eyebrow">Historico do desafio</span>
+            <h3>{historyChallenge.title}</h3>
+            <p>{historyChallenge.a} contra {historyChallenge.b}</p>
+          </div>
+          <button className="ghost small" type="button" onClick={() => setHistoryChallenge(null)}>Fechar</button>
+        </div>
+        {historyLoading && <div className="success">Carregando historico real...</div>}
+        {historyError && <div className="error">{historyError}</div>}
+        <div className="historyList">
+          {historySessions.map((session) => <div className="historyItem" key={session.id}>
+            <div>
+              <strong>{session.student?.user?.name || 'Aluno'}</strong>
+              <small>{session.status} - {session.modality || 'Treino'} - {Number(session.distanceKm || 0).toFixed(2)} km - {Number(session.durationMinutes || 0).toFixed(0)} min</small>
+              <em>{brDateTime(session.registeredAt || session.createdAt)}{session.invalidReason ? ` - ${session.invalidReason}` : ''}</em>
+              {normalizeEvidencePhotos(session.photoEvidence).length ? <div className="contestEvidenceGrid">
+                {normalizeEvidencePhotos(session.photoEvidence).map((photo: any) => <figure key={`history-${session.id}-${photo.type}`} className="contestEvidencePhoto">
+                  <img src={resolveUploadUrl(photo.photoUrl)} alt={`Comprovante ${EVIDENCE_PHOTO_LABELS[photo.type] || photo.type}`} />
+                  <figcaption>{EVIDENCE_PHOTO_LABELS[photo.type] || photo.type}</figcaption>
+                </figure>)}
+              </div> : null}
+            </div>
+            <b>{session.status === 'validado' || session.status === 'aprovado_professor' || session.status === 'corrigido_professor' ? 'OK' : '...'}</b>
+          </div>)}
+          {!historySessions.length && !historyLoading && !historyError && <Empty text="Nenhum registro encontrado neste desafio." />}
+        </div>
+      </section>
+    </div>}
+
+    {analysisSession && <div className="modalOverlay" role="dialog" aria-modal="true">
+      <section className="modalCard challengeAnalysisModal">
+        <div className="sectionHeader">
+          <div>
+            <span className="eyebrow">Analise de contestacao</span>
+            <h3>{analysisSession.student}</h3>
+            <p>{analysisSession.challenge} contra {analysisSession.opponent}</p>
+          </div>
+          <button className="ghost small" type="button" onClick={() => setAnalysisSessionId(null)}>Fechar</button>
+        </div>
+        <div className="challengeAnalysisGrid">
+          <section className="challengeAnalysisPanel">
+            <h4>Dados declarados</h4>
+            <div className="challengeAnalysisFacts">
+              <span><small>Modalidade</small><b>{analysisSession.modality || 'Nao informado'}</b></span>
+              <span><small>Distancia</small><b>{Number(analysisSession.distanceKm ?? 0).toFixed(2)} km</b></span>
+              <span><small>Tempo</small><b>{Number(analysisSession.durationMinutes ?? 0)} min</b></span>
+              <span><small>Status</small><b>{analysisSession.status || 'sem status'}</b></span>
+              <span><small>Registrado em</small><b>{brDateTime(analysisSession.registeredAt || analysisSession.createdAt)}</b></span>
+              <span><small>Fonte</small><b>camera_app</b></span>
+            </div>
+          </section>
+          <section className="challengeAnalysisPanel">
+            <h4>Motivo da contestacao</h4>
+            <p>{analysisSession.reason || 'Sem motivo detalhado.'}</p>
+            <div className="challengeTimeline">
+              <span>Registro criado: {brDateTime(analysisSession.createdAt || analysisSession.registeredAt)}</span>
+              <span>Contestacao: {analysisSession.reason || 'sem motivo detalhado'}</span>
+              <span>Status atual: {analysisSession.status || 'sem status'}</span>
+              {analysisSession.validation?.professorDecision && <span>Decisao anterior: {analysisSession.validation.professorDecision}</span>}
+            </div>
+          </section>
+          <section className="challengeAnalysisPanel challengeAnalysisPhotosPanel">
+            <h4>Comprovantes</h4>
+            {(analysisSession.photoEvidence || []).length ? <div className="challengeAnalysisPhotos">
+              {(analysisSession.photoEvidence || []).map((photo: any) => <figure key={`analysis-${analysisSession.id}-${photo.type}`} className="challengeAnalysisPhoto">
+                <img src={resolveUploadUrl(photo.photoUrl)} alt={`Comprovante ${EVIDENCE_PHOTO_LABELS[photo.type] || photo.type}`} />
+                <figcaption>{EVIDENCE_PHOTO_LABELS[photo.type] || photo.type}</figcaption>
+              </figure>)}
+            </div> : <div className="contestEvidenceMissing">Sem as 3 fotos anexadas neste registro.</div>}
+          </section>
+          {(analysisSession as any).remote && <section className="challengeAnalysisPanel">
+            <h4>Correcao do professor</h4>
+            <div className="contestCorrectionGrid">
+              <label>KM corrigido<input value={correctionDrafts[analysisSession.id]?.distance ?? String(analysisSession.distanceKm ?? '')} onChange={event => updateCorrectionDraft(analysisSession.id, 'distance', event.target.value)} inputMode="decimal" /></label>
+              <label>Tempo corrigido<input value={correctionDrafts[analysisSession.id]?.duration ?? String(analysisSession.durationMinutes ?? '')} onChange={event => updateCorrectionDraft(analysisSession.id, 'duration', event.target.value)} inputMode="numeric" /></label>
+            </div>
+          </section>}
+        </div>
+        <div className="challengeAnalysisActions">
+          <button className="secondary" type="button" onClick={() => decideContest('aprovado pelo professor', analysisSession.id, Boolean((analysisSession as any).remote))}>Aprovar registro</button>
+          <button className="secondary" type="button" onClick={() => decideContest('corrigido pelo professor', analysisSession.id, Boolean((analysisSession as any).remote))}>Salvar correcao</button>
+          <button className="ghost" type="button" onClick={() => decideContest('recusado pelo professor', analysisSession.id, Boolean((analysisSession as any).remote))}>Recusar registro</button>
+        </div>
+      </section>
+    </div>}
+  </Shell>;
+}
+
 function App() {
   useEffect(() => {
     if (import.meta.env.PROD && 'serviceWorker' in navigator) {
@@ -2009,6 +2745,8 @@ function App() {
           <Route path="/aluno/*" element={<Protected profile="student"><StudentAppRedirect /></Protected>} />
 
           <Route path="/professor" element={<Protected profile="teacher"><TeacherDashboard /></Protected>} />
+          <Route path="/professor/professores" element={<Protected profile="teacher"><OwnerTeachersDashboard /></Protected>} />
+          <Route path="/professor/desafios" element={<Protected profile="teacher"><TeacherChallenges /></Protected>} />
           <Route path="/professor/alunos" element={<Protected profile="teacher"><TeacherStudents /></Protected>} />
           <Route path="/professor/acessos" element={<Protected profile="teacher"><TeacherAccesses /></Protected>} />
           <Route path="/professor/alertas" element={<Protected profile="teacher"><TeacherAlerts /></Protected>} />
