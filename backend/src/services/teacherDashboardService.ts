@@ -61,11 +61,12 @@ export interface SleepRecordLike {
 
 export interface StudentLike {
   id: number | string;
-  user?: { name?: string | null; email?: string | null; login?: string | null; username?: string | null } | null;
+  user?: { name?: string | null; email?: string | null; login?: string | null; username?: string | null; photoUrl?: string | null } | null;
   name?: string | null;
   email?: string | null;
   login?: string | null;
   username?: string | null;
+  photoUrl?: string | null;
   sleepRecords?: SleepRecordLike[];
   sleepGoals?: SleepGoalLike[];
   activeSleepGoal?: SleepGoalLike | null;
@@ -544,6 +545,7 @@ export function buildTeacherDashboardSummary(students: StudentLike[], reference 
       email: student.user?.email || student.email || '',
       login: student.user?.login || student.login || undefined,
       username: student.user?.username || student.username || undefined,
+      photoUrl: student.user?.photoUrl || student.photoUrl || null,
       lastRecord: mapSleepRecordForTeacher(lastRecord),
       recentRecords: recentRecords.map(mapSleepRecordForTeacher),
       recordsLast7Days: recordsLast7Days.map(mapSleepRecordForTeacher),

@@ -11,7 +11,7 @@ type RegisterTeacherPayload = { name: string; email: string; password: string };
 type SleepRecord = { id: number; date: string; sleepTime?: string; wakeTime?: string; sleepStart?: string; sleepEnd?: string; scoreTotal: number; totalHours: number; classification: string; perceivedQuality: number; awakenings: number; morningState?: number; wakeState?: number; energy?: number; mood?: number; stress?: number; generalPain?: number; bodyHeaviness?: number; timeToSleep?: number; sleepLatencyMinutes?: number; nap?: boolean; caffeine?: boolean; alcohol?: boolean; screenBeforeSleep?: boolean; pain?: boolean; notes?: string; scoreDuration?: number; scoreQuality?: number; scoreContinuity?: number; scoreState?: number; scoreRegularity?: number };
 type WeeklySummary = { averageScore?: number; averageHours?: number; averageQuality?: number; averageEnergy?: number; nightsRecorded?: number; goodNights?: number; badNights?: number; regularityAverage?: number; adherence?: number; trend?: string };
 type RecoverySummary = { hasData: boolean; recoveryLevel: string | null; readinessScore: number | null; fatigueRisk: string | null; recoveryScore: number | null; weeklyTrendPercent: number | null; trainingSuggestion?: string };
-type StudentListItem = { id: number; name: string; email?: string; login?: string; username?: string; status?: string; studentStatus?: string; trackingStatus?: string; priority?: string; weeklyAverage?: number; monthlyAverage?: number; trend?: string; lastRecord?: any; recentRecords?: SleepRecord[]; records?: SleepRecord[]; allRecords?: SleepRecord[]; adherence?: number; alertCount?: number; risk?: string; recommendation?: string };
+type StudentListItem = { id: number; name: string; email?: string; login?: string; username?: string; photoUrl?: string | null; avatarUrl?: string | null; profilePhoto?: string | null; imageUrl?: string | null; picture?: string | null; photo?: string | null; avatar?: string | null; status?: string; studentStatus?: string; trackingStatus?: string; priority?: string; weeklyAverage?: number; monthlyAverage?: number; trend?: string; lastRecord?: any; recentRecords?: SleepRecord[]; records?: SleepRecord[]; allRecords?: SleepRecord[]; adherence?: number; alertCount?: number; risk?: string; recommendation?: string };
 type AlertItem = { id: number | string; studentId?: number | string; studentName?: string; type?: string; title?: string; message?: string; description: string; level?: string; severity?: string; priority?: string; recommendedAction?: string; action?: string; date?: string; createdAt?: string; status?: string; source?: 'backend' };
 type InsightItem = { title?: string; message?: string; description?: string; level?: string; type?: string } | string;
 type SleepGoal = { id?: number; hoursGoal?: number; sleepTimeGoal?: string; wakeTimeGoal?: string; regularityGoal?: number; active?: boolean; createdAt?: string } | null;
@@ -45,9 +45,9 @@ type OwnerTeacherMetric = {
   operationalStatus: 'sem_alunos' | 'estavel' | 'atencao' | 'critico';
   lastActivityAt?: string | null;
   studentHighlights?: {
-    risk?: { id: number | string; name: string; email: string; score: number | null }[];
-    lowAdherence?: { id: number | string; name: string; email: string; recordsLast7Days: number }[];
-    withoutRecords?: { id: number | string; name: string; email: string }[];
+    risk?: { id: number | string; name: string; email: string; photoUrl?: string | null; score: number | null }[];
+    lowAdherence?: { id: number | string; name: string; email: string; photoUrl?: string | null; recordsLast7Days: number }[];
+    withoutRecords?: { id: number | string; name: string; email: string; photoUrl?: string | null }[];
   };
   students?: { id: number | string; name: string; email: string; photoUrl?: string | null; status: string; latestRecordDate: string | null; averageScore: number | null; recordsLast7Days: number }[];
 };

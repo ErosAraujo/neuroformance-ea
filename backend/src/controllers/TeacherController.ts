@@ -105,6 +105,7 @@ export class TeacherController {
           studentId: student.id,
           studentName: student.user.name,
           studentEmail: student.user.email,
+          studentPhotoUrl: student.user.photoUrl ?? null,
           lastRecord: mapSleepRecordForTeacher(student.sleepRecords[0]),
           priority: alerts[0]?.priority ?? 'low',
           alerts,
