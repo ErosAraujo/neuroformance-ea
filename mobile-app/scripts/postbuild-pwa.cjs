@@ -19,6 +19,16 @@ function copyFile(name) {
   console.log(`[PWA] Copiado: ${name}`);
 }
 
+function writeSpaRoute(route) {
+  if (!fs.existsSync(indexPath)) return;
+
+  const normalizedRoute = route.replace(/^\/+|\/+$/g, "");
+  const routeDir = path.join(distDir, normalizedRoute);
+  fs.mkdirSync(routeDir, { recursive: true });
+  fs.copyFileSync(indexPath, path.join(routeDir, "index.html"));
+  console.log(`[PWA] Rota SPA gerada: /${normalizedRoute}`);
+}
+
 if (!fs.existsSync(distDir)) {
   throw new Error("[PWA] Pasta dist não encontrada. Rode expo export antes.");
 }
@@ -47,3 +57,6 @@ if (fs.existsSync(indexPath)) {
     console.log("[PWA] Manifest já estava no index.html");
   }
 }
+
+writeSpaRoute("/login");
+writeSpaRoute("/register");
